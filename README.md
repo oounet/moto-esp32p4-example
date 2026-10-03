@@ -1,0 +1,56 @@
+# Moto ESP32-P4 开源接入参考工程
+
+[English](README.en.md) · [功能与代码入口](docs/FEATURES.md) · [架构](docs/ARCHITECTURE.md)
+
+面向 JC1060P470C_I_W_Y / JD9165 1024×600 屏、ESP32-P4 + ESP32-C6 的完整应用参考。BLE 配对、导航/镜像接收、HUD、通知和仪表切换使用实际板级驱动；车辆数据始终标记 DEMO。
+
+**本仓库开源应用与适配代码，Moto SDK 内部实现仍为闭源静态库。** 客户从接入团队取得 SDK 0.1.0 / ABI 3 / ESP-IDF 5.5.4 的二进制包和本设备授权。本仓库不包含 SDK 实现、二进制分发、设备授权或私钥。
+
+## 先运行完整 P4 工程
+
+安装 ESP-IDF 5.5.4 及其工具链、Python 3.10+ 和 Git。SDK 包路径与 IDF 路径替换为本机实际值：
+
+```sh
+git clone https://github.com/oounet/moto-esp32p4-example.git
+cd moto-esp32p4-example
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261003-abi3.zip
+python3 tools/fetch_lvgl.py
+. /path/to/esp-idf-v5.5.4/export.sh
+idf.py build
+```
+
+SDK 导入会核验包内校验和，只安装头文件、静态库、组件和元数据到被 Git 忽略的 `vendor/moto-sdk`。LVGL 固定到官方 9.3.0 提交。组件管理器按 `dependencies.lock` 获取 Espressif 依赖，不需要任何相邻私有仓库。构建产物为 `build/moto_p4_example.bin`。
+
+初次无授权构建可用于检查编译和屏幕驱动，设备显示 LICENSE REQUIRED，不会假装认证成功。取得可信公开验签头后重新构建：
+
+```sh
+idf.py -DMOTO_LICENSE_TRUST_HEADER=/absolute/path/to/moto-license-trust.h build
+```
+
+头文件声明 `static const uint8_t moto_license_trust_key[65]`，值为平台可信 P-256 公钥。不要从待验证的 License 中自行提取信任。授权写入步骤见 [设备配置](docs/PROVISIONING.md)。
+
+仅在确认板型、接线、原分区和备份后，使用自己的串口执行 `idf.py -p PORT flash monitor`；已有设备且分区相同时可只更新 `app-flash`。这些命令会写硬件，本项目的构建和测试不会自动执行它们。
+
+## 再按功能学习与移植
+
+- `main/`：完整板端应用，使用 SDK **公开的底层 C API**，保留 NimBLE 双连接接管及视频任务。此处不是 SDK 内部源码。
+- `examples/managed-terminal/`：面向新平台的简单 FreeRTOS ABI 3 接口，SDK 管理任务和事件；含各功能可编译示例及可替换 BSP。**独立工程，不和 main 创建两个终端实例。**
+- `docs/FEATURES.md`：逐项列出代码入口、运行状态、需要客户实现的部分和验证方法。广告、OTA、通话示例不代表本开发板已具备对应播放器、启动分区或 HFP 硬件。
+
+```sh
+cd examples/managed-terminal
+idf.py build
+```
+
+先实现 `main/board_driver.c` 的授权、BLE 和显示，再参考 `snippets/` 添加功能。默认未实现驱动返回失败，可选功能关闭。不要把模板编译成功当作已经接入设备。
+
+## 验证
+
+```sh
+python3 tools/test_host.py
+python3 tools/audit_public.py
+```
+
+验证记录见 [VALIDATION.md](docs/VALIDATION.md)。本次公开版本的 UI 为原生 LVGL 参考界面，只使用可再分发字体；没有打包原仪表图片及系统字体。P4/C6 无经典蓝牙 HFP，通话音频需要外部硬件。SDK 队列、UI、解码、无线与掉电持久化必须在客户目标板独立验证。
+
+应用代码采用 MIT，第三方代码/字体保留原许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。此许可不包含 Moto SDK 二进制及其头文件的再分发授权。

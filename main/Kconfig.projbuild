@@ -1,0 +1,9 @@
+menu "Moto production provisioning"
+    config MOTO_FACTORY_USB
+        bool "Enable optional USB License provisioning endpoint"
+        default y
+        help
+            Disable when manufacturing preloads license_v1 in NVS or supplies
+            another transport using factory_license_install. Verification is
+            always required regardless of the provisioning transport.
+endmenu
