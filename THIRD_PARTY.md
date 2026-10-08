@@ -11,3 +11,5 @@ The root MIT license covers OOU application/adaptation/example code unless a fil
 | Moto SDK | Proprietary binary dependency supplied separately; never included in public source or covered by root MIT |
 
 原仪表参考图片、截图提取字形、Arial/DIN 系统字体派生数据未纳入本仓库。公开 UI 使用 LVGL 原生控件和上游可再分发字体，中文 HUD 保留 Noto OFL 字库。测试 JPEG 是解码自检色条，不是用户素材。
+
+Maps are supplied by the paired APP and are not bundled in this repository. Source information is available in the APP and [map integration guide](docs/OFFLINE_MAPS.en.md). Preserve the applicable OpenStreetMap/Protomaps or Tianditu terms and credits for the data used. ROM miniz is provided by ESP-IDF; no decompressor implementation is copied into this repository.

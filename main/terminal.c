@@ -1,3 +1,4 @@
+#include "route_map_store.h"
 #include "terminal_board.h"
 #include "terminal_video.h"
 #include "ancs_adapter.h"
@@ -169,6 +170,7 @@ static void on_event(void *user, const moto_event *event) {
     if (event->kind == MOTO_EVENT_READY) peer->session_started = clock_ms(NULL);
     if (peer != active) return; /* Candidates never touch vehicle/UI/ANCS/OTA adapters. */
     hud_display_event(event);
+    terminal_map_event(event);
     terminal_video_event(event);
     switch (event->kind) {
     case MOTO_EVENT_PAIRING_PIN:
@@ -307,6 +309,7 @@ static void on_tick(struct ble_npl_event *event) {
     terminal_ancs_tick(moto_authenticated(sdk));
     if (terminal_ancs_should_disconnect()) active->disconnect_requested = true;
     terminal_video_poll(sdk);
+    terminal_map_poll(sdk);
     simulate_vehicle();
     advertise();
     ble_npl_callout_reset(&timer, ble_npl_time_ms_to_ticks32(20));
@@ -500,7 +503,8 @@ void p4_terminal_start(void) {
     cfg.hardware_revision = "JC1060-ESP32-P4-C6";
     cfg.firmware_version = esp_app_get_description()->version;
     cfg.phone_state = true;
-    cfg.route_navigation = false;
+    cfg.map = terminal_map_port();
+    cfg.route_navigation = cfg.map.max_bytes != 0;
     cfg.instrument = terminal_board_instrument_port();
     cfg.pairing_pin = true; cfg.persist_pairing_auth = persist_auth;
     assert(load_auth(&cfg.pairing_auth));

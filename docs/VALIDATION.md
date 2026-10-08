@@ -31,3 +31,13 @@ No hardware was flashed or reconfigured for this publication. The new native LVG
 `tests/test_config.c`、`test_notice_view.c`、`test_media_session.c` 等保留为公开应用回归素材；需要匹配主机平台的 SDK 库或板端测试适配，不属于默认主机测试通过声明。不要把 P4 归档链接到 x86/ARM 主机测试。
 
 Additional public board regression sources may require matching host SDK archives or target adaptation; they are not included in the default passing host suite. P4 archives cannot link into a host executable.
+
+## 离线地图更新 / Offline maps — 2026-10-08
+
+使用 revision 8 / 20261008 二进制 SDK（头文件与库同包）：根工程和 managed-terminal 均已完成 ESP-IDF 5.5.4 编译链接。公开工程仅使用 vendor 中的交付接口，不依赖相邻 SDK 源码。主机测试新增实际 TCP 适配器的分片、短写、背压、限额、断开与认证失效检查；原有 HUD、仪表、颜色、内存与导入检查仍通过。完整地图核心和真实 TLS 互操作由 SDK/App 内部回归覆盖，不复制到公开工程。
+
+Both projects build against revision 8 binary headers and archives. Host checks now include the production map TCP adapter's fragmentation, short writes, backpressure, bounded work, disconnect and revocation. Existing host checks pass. Core map/TLS interoperability tests remain in their owning repositories.
+
+本次未将公开参考 UI 刷入设备；iPhone/P4 整包传输实测来自内部完整仪表工程。公开 UI、持续骑行、后台窗口更新和 Android 真机需单独验收。
+
+The public reference UI was not flashed for this publication. Prior iPhone/P4 transfer evidence comes from the internal instrument application. Public UI, sustained riding, background window updates and Android hardware still require separate acceptance.

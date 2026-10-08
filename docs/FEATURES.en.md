@@ -23,6 +23,7 @@ Start with the full board application. For a new BSP use the separate managed ex
 | Wi-Fi bulk transfer | [bulk.c](../examples/managed-terminal/snippets/bulk.c) | — | Compiled template; SDK owns TLS, BSP owns TCP; dispatch by purpose |
 | OTA transport | [ota.c](../examples/managed-terminal/snippets/ota.c) | — | Explicit simulator: hash/resume/status; no Flash write, reboot or install |
 | Validation and troubleshooting | [testing.c](../examples/managed-terminal/snippets/testing.c) | [tools/test_host.py](../tools/test_host.py) | Build and memory/color/UI checks; board acceptance still required |
+| Offline maps | [Integration](OFFLINE_MAPS.en.md) | `main/route_map_*.c` | Root project: compressed transfers, bounded window and BLE positions; requires updated SDK |
 
 ## Suggested order
 

@@ -23,6 +23,7 @@
 | Wi-Fi 大文件 | [bulk.c](../examples/managed-terminal/snippets/bulk.c) | — | 编译模板；SDK 负责 TLS，客户接 TCP；与视频按 purpose 分流 |
 | OTA 传输 | [ota.c](../examples/managed-terminal/snippets/ota.c) | — | 显式模拟器：校验、续传、状态；不写 Flash、不重启、不升级 |
 | 联调与排障 | [testing.c](../examples/managed-terminal/snippets/testing.c) | [tools/test_host.py](../tools/test_host.py) | 编译、内存/色彩/UI 算法检查；设备验收仍需实板 |
+| 离线地图 | [接入说明](OFFLINE_MAPS.md) | `main/route_map_*.c` | 根工程已接压缩传输、有限窗口与 BLE 位置；需新版二进制 SDK |
 
 ## 建议接入顺序
 

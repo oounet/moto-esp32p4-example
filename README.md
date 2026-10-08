@@ -13,7 +13,7 @@
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261003-abi3.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261008-abi3.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -54,3 +54,7 @@ python3 tools/audit_public.py
 验证记录见 [VALIDATION.md](docs/VALIDATION.md)。本次公开版本的 UI 为原生 LVGL 参考界面，只使用可再分发字体；没有打包原仪表图片及系统字体。P4/C6 无经典蓝牙 HFP，通话音频需要外部硬件。SDK 队列、UI、解码、无线与掉电持久化必须在客户目标板独立验证。
 
 应用代码采用 MIT，第三方代码/字体保留原许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。此许可不包含 Moto SDK 二进制及其头文件的再分发授权。
+
+## 离线地图
+
+根工程包含整包压缩接收、路线底图及 BLE 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 8 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。

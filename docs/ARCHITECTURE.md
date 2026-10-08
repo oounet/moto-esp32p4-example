@@ -25,3 +25,9 @@ Keep contexts alive through destruction; copy events and preserve original sessi
 `vendor/moto-sdk` 由导入脚本建立，始终被 Git 忽略。公开目录只包含应用、板级适配、示例、测试和许可证。字体为 Noto CJK 的 OFL 派生位图，LVGL 自带字体保持上游许可；未复制原项目系统字体或来源图片。
 
 Only application, BSP, examples, tests and notices are public. Proprietary SDK headers/archives stay in ignored vendor storage. Never copy SDK src/ports or device-specific provisioning data into the repository.
+
+## 地图数据 / Map data
+
+根工程由 SDK owner 线程接收认证 TCP 地图包；完整校验后，在互斥量内替换显示数据。显示任务持锁读取，回调复制 BLE 路线与位置；导航结束清理内存。地图不包含 SDK 私有实现。
+
+The SDK owner receives authenticated map transfers. Validated maps replace display state under a mutex; BLE route and position events are copied. Navigation end clears temporary memory. See [integration](OFFLINE_MAPS.en.md).

@@ -63,3 +63,8 @@ CONFIG_LWIP_DHCPS_ADD_DNS=n
 # Keep LCD DMA completion interrupts responsive during full-frame cache writeback.
 CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS=y
 CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS_MAX_LEN=0x2000
+
+# Route-map TCP stream: bounded receive window and burst queue.
+CONFIG_LWIP_TCP_WND_DEFAULT=65535
+CONFIG_LWIP_TCP_RECVMBOX_SIZE=48
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64

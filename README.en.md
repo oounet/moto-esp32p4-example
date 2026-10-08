@@ -13,7 +13,7 @@ Install ESP-IDF 5.5.4 with its toolchain, Python 3.10+ and Git. Substitute your 
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261003-abi3.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261008-abi3.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -54,3 +54,7 @@ python3 tools/audit_public.py
 See [validation](docs/VALIDATION.md). The public UI uses native LVGL widgets and redistributable fonts; original dashboard artwork and system-font derivatives are excluded. P4/C6 does not provide Classic Bluetooth HFP; call audio requires external hardware. Validate radio, rendering, storage and power-loss behavior on your board.
 
 Application code is MIT; third-party files retain their licenses in [THIRD_PARTY.md](THIRD_PARTY.md). The license does not grant redistribution rights to Moto SDK headers or binaries.
+
+## Offline maps
+
+The root project includes compressed map reception and route/BLE position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 8 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.

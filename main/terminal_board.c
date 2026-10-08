@@ -2,6 +2,7 @@
 #include "terminal_video.h"
 #include "notice_view.h"
 #include "hud_view.h"
+#include "route_map_store.h"
 #include "media_session.h"
 #include "instrument_frame.h"
 #include "moto/ancs.h"
@@ -341,7 +342,7 @@ bool terminal_board_overlay_changed(void) {
     bool navigation_changed=route_visible!=previous_route_visible || (route_visible && (previous_route!=hud_generation || previous_fresh!=fresh));
     previous_route=hud_generation;previous_fresh=fresh;previous_route_visible=route_visible;
     xSemaphoreGive(mutex);
-    bool changed = navigation_changed || memcmp(&previous, &current, sizeof current) != 0;
+    bool changed = terminal_map_changed() || navigation_changed || memcmp(&previous, &current, sizeof current) != 0;
     previous = current;
     return changed;
 }
@@ -357,6 +358,11 @@ void terminal_board_overlay(uint16_t *pixels, unsigned width, unsigned height) {
     draw_hud=state.hud;
     bool fresh=state.hud_valid && now<state.hud_until, night=state.night;
     xSemaphoreGive(mutex);
-    if(draw)terminal_hud_draw(pixels,width,height,&draw_hud,fresh,night);
+    if(draw){
+        bool position_fresh=false,complete=false;
+        if(terminal_map_draw(pixels,width,height,&position_fresh,&complete))
+            terminal_hud_map_overlay(pixels,width,height,&draw_hud,fresh,night,position_fresh,complete);
+        else terminal_hud_draw(pixels,width,height,&draw_hud,fresh,night);
+    }
     if (visible) terminal_notice_draw(pixels, width, height, &copy);
 }
