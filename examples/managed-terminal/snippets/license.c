@@ -32,4 +32,4 @@ uint64_t example_now(void *u) {
     return s->monotonic_ms(s->user); /* Must also be safe from event-consumer task. */
 }
 /* Assign port.user=&store and the five callbacks above before create.
- * BLE send/close must use the same port.user or wrap a common board context. */
+ * Transport send/close must use the same port.user or wrap a common board context. */

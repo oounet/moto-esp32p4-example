@@ -2,17 +2,17 @@
 
 ## 完整 P4 应用 / Full board application
 
-`app_main` 初始化 LCD 和 LVGL 所有者任务，再运行 `p4_terminal_start`。`terminal.c` 由 NimBLE host 串行调用 SDK 的公开 `moto_sdk/moto_tls` 接口；候选手机只认证，接管成功后才成为业务所有者。SDK 的实现来自 `libmoto_sdk.a`，不在应用目录中。
+`app_main` 初始化 LCD 和 LVGL 所有者任务，再运行 `p4_terminal_start`。`terminal.c` 由 NimBLE host 串行调用 SDK 的公开 `moto_sdk/moto_tls` 接口；TCP 主实例负责业务，BLE 候选只认证并接管通知辅助连接。SDK 的实现来自 `libmoto_sdk.a`，不在应用目录中。
 
 `terminal_board.c` 复制回调数据到有界状态/队列。LVGL 所有者任务独占所有 UI 调用；车辆任务的 DEMO 结果由 host 回报。`terminal_video.c` 独占重组、解码和视频代次；UDP 来源必须对应热点关联手机。LCD 实际显示后才回报帧呈现。ANCS 的完整 NimBLE 适配位于 `ancs_adapter.c`，解析实现来自 SDK 库。
 
-The full application serializes public core/TLS APIs on the NimBLE host. UI and decoder tasks own their resources and receive copied values. Candidate phones cannot operate the UI or vehicle before handoff. Decoder completion is distinct from LCD presentation. Do not call core APIs concurrently or retain callback pointers.
+The full application serializes public core/TLS APIs on the NimBLE host. UI and decoder tasks own their resources and receive copied values. The TCP instance owns business traffic; BLE candidates authenticate only for notification companion handoff. Decoder completion is distinct from LCD presentation. Do not call core APIs concurrently or retain callback pointers.
 
 ## 简单标准入口 / Managed interface
 
-`examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于从零移植到新板，不在 P4 主工程中再次启动；主工程现有双连接接管属于更高级的适配。
+`examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于从零移植到新板，不在 P4 主工程中再次启动；主工程展示 Wi-Fi 与 BLE 独立实例及通知连接接管。
 
-The separate managed example owns one terminal through the ABI 3 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
+The separate managed example owns one terminal through the ABI 5 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
 
 ## 生命周期 / Lifetime
 
@@ -28,6 +28,12 @@ Only application, BSP, examples, tests and notices are public. Proprietary SDK h
 
 ## 地图数据 / Map data
 
-根工程由 SDK owner 线程接收认证 TCP 地图包；完整校验后，在互斥量内替换显示数据。显示任务持锁读取，回调复制 BLE 路线与位置；导航结束清理内存。地图不包含 SDK 私有实现。
+根工程由 SDK owner 线程接收认证 TCP 地图包；完整校验后，在互斥量内替换显示数据。显示任务持锁读取，回调复制 Wi-Fi 路线与位置；导航结束清理内存。地图不包含 SDK 私有实现。
 
-The SDK owner receives authenticated map transfers. Validated maps replace display state under a mutex; BLE route and position events are copied. Navigation end clears temporary memory. See [integration](OFFLINE_MAPS.en.md).
+The SDK owner receives authenticated map transfers. Validated maps replace display state under a mutex; Wi-Fi route and position events are copied. Navigation end clears temporary memory. See [integration](OFFLINE_MAPS.en.md).
+
+## 无线通道 / Wireless channels
+
+AP 在启动时提供 DHCP，UDP 5000 用于发现、TCP 5004 承载主业务 TLS。BLE 配对引导与 Android 通知 / iOS ANCS 使用独立辅助 SDK/TLS 实例；两个实例在同一 owner 线程串行执行，共享持久化 owner 快照。蓝牙断开不终止主导航，业务断开不主动清理通知会话。UI 的 Wi-Fi / 蓝牙图标分别读取真实认证状态。
+
+The AP starts at boot. UDP 5000 provides discovery; TCP 5004 carries authenticated business traffic. Optional BLE bootstrap and Android notifications / iOS ANCS use a separate SDK/TLS instance. One owner thread serializes both instances and shared durable owner records. Each radio icon reflects its own authenticated connection. Video or bulk cleanup preserves the AP and primary listener.

@@ -8,6 +8,7 @@
 #include "moto/ancs.h"
 #include <stdatomic.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -268,7 +269,7 @@ void terminal_board_tick(void)
     if (!terminal_video_visible() && lv_tick_elaps(last_sample) >= 50) {
         last_sample = lv_tick_get();
         telemetry = electric_demo_sample((uint32_t)now);
-        telemetry.connected = copy.connected;
+        telemetry.connected = moto_terminal_wifi_connected();
         electric_ui_set_state(&telemetry);
     }
     char text[192] = "";
@@ -331,6 +332,9 @@ void hud_display_ancs_clear(void) {
 bool terminal_board_overlay_changed(void) {
     /* UI task owns previous; BLE callbacks only mutate state under the mutex. */
     static terminal_notice previous;
+    static unsigned previous_links;
+    unsigned links = moto_terminal_wifi_connected() | (moto_terminal_bluetooth_connected() << 1);
+    bool links_changed = links != previous_links; previous_links = links;
     static uint64_t previous_route;
     static bool previous_fresh, previous_route_visible;
     terminal_notice current = {0};
@@ -342,9 +346,31 @@ bool terminal_board_overlay_changed(void) {
     bool navigation_changed=route_visible!=previous_route_visible || (route_visible && (previous_route!=hud_generation || previous_fresh!=fresh));
     previous_route=hud_generation;previous_fresh=fresh;previous_route_visible=route_visible;
     xSemaphoreGive(mutex);
-    bool changed = terminal_map_changed() || navigation_changed || memcmp(&previous, &current, sizeof current) != 0;
+    bool changed = links_changed || terminal_map_changed() || navigation_changed || memcmp(&previous, &current, sizeof current) != 0;
     previous = current;
     return changed;
+}
+/* The same two link indicators overlay instrument, HUD and video frames. */
+static void link_line(uint16_t *pixels,unsigned width,unsigned height,int x,int y,int end_x,int end_y,uint16_t ink) {
+    int dx=abs(end_x-x), sx=x<end_x?1:-1, dy=-abs(end_y-y), sy=y<end_y?1:-1, error=dx+dy;
+    for(;;){
+        for(int yy=y;yy<=y+1;yy++)for(int xx=x;xx<=x+1;xx++)
+            if(xx>=0 && yy>=0 && (unsigned)xx<width && (unsigned)yy<height)pixels[yy*width+xx]=ink;
+        if(x==end_x && y==end_y)break;
+        int twice=2*error;if(twice>=dy){error+=dy;x+=sx;}if(twice<=dx){error+=dx;y+=sy;}
+    }
+}
+static void draw_links(uint16_t *pixels,unsigned width,unsigned height) {
+    if(width<120 || height<50)return;
+    uint16_t wifi=moto_terminal_wifi_connected()?0x06df:0x7bef;
+    uint16_t ble=moto_terminal_bluetooth_connected()?0x06df:0x7bef;
+    int x=(int)width-98,y=18;
+    link_line(pixels,width,height,x,y+6,x+8,y+2,wifi);link_line(pixels,width,height,x+8,y+2,x+16,y+2,wifi);link_line(pixels,width,height,x+16,y+2,x+24,y+6,wifi);
+    link_line(pixels,width,height,x+5,y+12,x+12,y+8,wifi);link_line(pixels,width,height,x+12,y+8,x+19,y+12,wifi);
+    link_line(pixels,width,height,x+11,y+17,x+13,y+17,wifi);
+    x+=43;link_line(pixels,width,height,x+7,y,x+7,y+22,ble);
+    link_line(pixels,width,height,x+7,y,x+15,y+6,ble);link_line(pixels,width,height,x+15,y+6,x,y+17,ble);
+    link_line(pixels,width,height,x,y+5,x+15,y+16,ble);link_line(pixels,width,height,x+15,y+16,x+7,y+22,ble);
 }
 void terminal_board_overlay(uint16_t *pixels, unsigned width, unsigned height) {
     terminal_notice copy;
@@ -365,4 +391,5 @@ void terminal_board_overlay(uint16_t *pixels, unsigned width, unsigned height) {
         else terminal_hud_draw(pixels,width,height,&draw_hud,fresh,night);
     }
     if (visible) terminal_notice_draw(pixels, width, height, &copy);
+    draw_links(pixels,width,height);
 }

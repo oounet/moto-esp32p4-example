@@ -4,6 +4,9 @@
 #include "ancs_adapter.h"
 /* moto-sdk BLE/TLS reference adapter, with JC1060 P4/C6 board hooks. */
 #include <inttypes.h>
+#include <errno.h>
+#include <fcntl.h>
+#include "lwip/sockets.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,6 +44,9 @@ void ble_store_config_init(void);
 static const char *TAG = "MotoSdk";
 static atomic_bool sdk_ready;
 static atomic_bool decoder_ready;
+static atomic_bool wifi_connected, bluetooth_connected;
+bool moto_terminal_wifi_connected(void) { return atomic_load(&wifi_connected); }
+bool moto_terminal_bluetooth_connected(void) { return atomic_load(&bluetooth_connected); }
 static atomic_bool hci_ready;
 bool moto_terminal_ble_ready(void) { return atomic_load(&hci_ready); }
 bool moto_terminal_video_ready(void) { return atomic_load(&decoder_ready); }
@@ -55,13 +61,20 @@ typedef struct {
     moto_sdk *sdk;
     moto_tls *tls;
     uint16_t conn;
+    int socket;
+    bool wifi;
+    uint64_t wifi_request;
     uint64_t generation, connected_at, close_at, session_started;
     bool subscribed, disconnect_requested, candidate;
     uint8_t tx_ring[8192];
     size_t tx_head, tx_count;
 } ble_peer;
 static ble_peer peers[2];
-static ble_peer *active;
+static ble_peer *active; /* BLE notification/bootstrap owner only. */
+static ble_peer business;
+static int listener = -1, discovery_socket = -1;
+static moto_pairing_auth shared_auth;
+static void poll_wifi(void);
 static moto_config base_config;
 static uint16_t tx_handle;
 static uint64_t next_generation;
@@ -77,6 +90,10 @@ static uint64_t clock_ms(void *user) { (void)user; return esp_timer_get_time() /
 static int random_bytes(void *user, uint8_t *bytes, size_t size) { (void)user; esp_fill_random(bytes, size); return 0; }
 static int send_cipher(void *user, const uint8_t *bytes, size_t size) {
     ble_peer *peer = user;
+    if (peer->wifi) {
+        int count = send(peer->socket, bytes, size, MSG_DONTWAIT);
+        return count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) ? 0 : count;
+    }
     if (peer->conn == BLE_HS_CONN_HANDLE_NONE) return -1;
     if (size > sizeof peer->tx_ring - peer->tx_count) size = sizeof peer->tx_ring - peer->tx_count;
     for (size_t i = 0; i < size; ++i)
@@ -144,6 +161,7 @@ static int persist_auth(void *user, const moto_pairing_auth *auth) {
     esp_err_t result = nvs_set_blob(storage, "license_auth", record, sizeof record);
     if (result == ESP_OK) result = nvs_commit(storage);
     memset(record, 0, sizeof record);
+    if (result == ESP_OK) shared_auth = *auth;
     return result == ESP_OK ? 0 : -1;
 }
 static bool load_auth(moto_pairing_auth *auth) {
@@ -156,6 +174,7 @@ static bool load_auth(moto_pairing_auth *auth) {
     auth->has_owner = record[1]; auth->failed_attempts = record[2];
     memcpy(auth->owner_token, record + 3, 32); memset(record, 0, sizeof record); return true;
 }
+static int read_auth(void *user, moto_pairing_auth *auth) { (void)user; *auth = shared_auth; return 0; }
 static int cloud_hmac(void *user, const uint8_t *data, size_t size, uint8_t out[32]) {
     (void)user;
     if (!cloud_configured || size > 1057) return -1;
@@ -168,7 +187,15 @@ static void on_event(void *user, const moto_event *event) {
         peer->close_at = clock_ms(NULL) + 150;
     }
     if (event->kind == MOTO_EVENT_READY) peer->session_started = clock_ms(NULL);
-    if (peer != active) return; /* Candidates never touch vehicle/UI/ANCS/OTA adapters. */
+    if (!peer->wifi) {
+        /* Bluetooth owns only pairing UI and notifications, never media cleanup. */
+        if (event->kind == MOTO_EVENT_ANCS_SHARING && peer == active) terminal_ancs_request(event->value == 1);
+        if (event->kind == MOTO_EVENT_WIFI) peer->wifi_request = event->request_id;
+        if (event->kind == MOTO_EVENT_CLOSED && peer == active) terminal_ancs_disconnect();
+        if (event->kind == MOTO_EVENT_NOTIFICATION || event->kind == MOTO_EVENT_NOTIFICATION_REMOVE ||
+            event->kind == MOTO_EVENT_PAIRING_PIN || event->kind == MOTO_EVENT_PAIRING_CLEARED) hud_display_event(event);
+        return;
+    }
     hud_display_event(event);
     terminal_map_event(event);
     terminal_video_event(event);
@@ -202,7 +229,6 @@ static void on_event(void *user, const moto_event *event) {
         terminal_ancs_disconnect();
         ESP_LOGI(TAG, "UNPAIRED owner revoked; immutable License retained"); break;
     case MOTO_EVENT_CLOSED:
-        terminal_ancs_disconnect();
         control_effects_cancel();
         break;
     case MOTO_EVENT_NAV_BEGIN: {
@@ -240,12 +266,9 @@ static void promote_peer(ble_peer *peer) {
     if (moto_handoff_promote(peer->sdk) != MOTO_OK) return;
 
     terminal_ancs_disconnect();
-    control_effects_cancel();
-    active = peer; sdk = peer->sdk; tls = peer->tls;
+    active = peer;
     peer->candidate = false;
     terminal_ancs_connect(peer->conn);
-    session_started_ms = peer->session_started;
-    next_sample = next_fault = 0;
 
     ESP_LOGI(TAG, "PHONE_HANDOFF_AUTHENTICATED generation=%" PRIu64, peer->generation);
 }
@@ -298,6 +321,13 @@ static void on_tick(struct ble_npl_event *event) {
         ble_peer *peer = &peers[i];
         if (peer->conn == BLE_HS_CONN_HANDLE_NONE) continue;
         if (peer->subscribed) {
+            if (peer->wifi_request) {
+                char ssid[33], password[33];
+                if (terminal_video_wifi_credentials(ssid, password)) {
+                    moto_wifi_complete(peer->sdk, moto_session_id(peer->sdk), peer->wifi_request, ssid, password, "192.168.4.1", 5001);
+                    memset(password, 0, sizeof password); peer->wifi_request = 0;
+                }
+            }
             flush_cipher(peer);
             if (!peer->disconnect_requested) moto_poll(peer->sdk);
             promote_peer(peer);
@@ -306,7 +336,10 @@ static void on_tick(struct ble_npl_event *event) {
         if (peer->disconnect_requested && clock_ms(NULL) >= peer->close_at)
             ble_gap_terminate(peer->conn, BLE_ERR_REM_USER_CONN_TERM);
     }
-    terminal_ancs_tick(moto_authenticated(sdk));
+    poll_wifi();
+    atomic_store(&wifi_connected, moto_authenticated(sdk));
+    atomic_store(&bluetooth_connected, active && moto_authenticated(active->sdk));
+    terminal_ancs_tick(active && moto_authenticated(active->sdk));
     if (terminal_ancs_should_disconnect()) active->disconnect_requested = true;
     terminal_video_poll(sdk);
     terminal_map_poll(sdk);
@@ -337,7 +370,7 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
     case BLE_GAP_EVENT_DISCONNECT: {
         ble_peer *peer = peer_for(event->disconnect.conn.conn_handle);
         if (!peer) break;
-        if (peer == active) { terminal_ancs_disconnect(); control_effects_cancel(); }
+        if (peer == active) terminal_ancs_disconnect();
         moto_disconnect(peer->sdk, peer->generation);
         peer->conn = BLE_HS_CONN_HANDLE_NONE; peer->subscribed = false; peer->disconnect_requested = false;
         peer->tx_head = peer->tx_count = 0; memset(peer->tx_ring, 0, sizeof peer->tx_ring);
@@ -351,7 +384,7 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
         if (!event->subscribe.cur_notify) { peer->disconnect_requested = true; break; }
         if (!peer->subscribed) {
             peer->subscribed = true;
-            moto_result rc = peer->candidate ? moto_connect_candidate(peer->sdk, sdk, peer->generation)
+            moto_result rc = peer->candidate ? moto_connect_candidate(peer->sdk, active->sdk, peer->generation)
                                             : moto_connect(peer->sdk, peer->generation);
             if (rc != MOTO_OK) peer->disconnect_requested = true;
         }
@@ -359,7 +392,7 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
     }
     default: break;
     }
-    return terminal_ancs_gap(event, moto_authenticated(sdk));
+    return terminal_ancs_gap(event, active && moto_authenticated(active->sdk));
 }
 static void advertise(void) {
     if (!atomic_load(&sdk_ready) || !ble_hs_synced()) return;
@@ -437,10 +470,58 @@ static bool create_peer(ble_peer *peer) {
     if (!peer->tls) return false;
     moto_config cfg = base_config;
     cfg.user = peer; cfg.secure = moto_tls_transport(peer->tls);
+    cfg.bluetooth_auxiliary = !peer->wifi;
+    cfg.read_pairing_auth = read_auth;
     if (!load_auth(&cfg.pairing_auth)) { moto_tls_destroy(peer->tls); peer->tls = NULL; return false; }
     peer->sdk = moto_create(&cfg);
     if (!peer->sdk) { moto_tls_destroy(peer->tls); peer->tls = NULL; return false; }
     return true;
+}
+static int open_listener(int type, uint16_t port) {
+    int fd = socket(AF_INET, type, 0);
+    if (fd < 0) return -1;
+    struct sockaddr_in address = {.sin_family=AF_INET, .sin_port=htons(port)};
+    address.sin_addr.s_addr = inet_addr("192.168.4.1");
+    int yes=1; setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof yes);
+    if (fcntl(fd,F_SETFL,O_NONBLOCK) < 0 || bind(fd,(struct sockaddr *)&address,sizeof address) ||
+        (type == SOCK_STREAM && listen(fd,1))) { close(fd); return -1; }
+    return fd;
+}
+/* Runs on the same SDK owner event queue as BLE, never from socket callbacks. */
+static void poll_wifi(void) {
+    if (listener < 0) listener = open_listener(SOCK_STREAM,5004);
+    if (discovery_socket < 0) discovery_socket = open_listener(SOCK_DGRAM,5000);
+    if (discovery_socket >= 0) {
+        char query[32]; struct sockaddr_in from; socklen_t length=sizeof from;
+        int count=recvfrom(discovery_socket,query,sizeof query,MSG_DONTWAIT,(struct sockaddr *)&from,&length);
+        if(count==15 && !memcmp(query,"MOTO_DISCOVER_V1",15)) {
+            char answer[160];
+            int size=snprintf(answer,sizeof answer,"{\"protocol\":\"sdk-v1\",\"discoveryId\":\"%s\",\"port\":5004}",discovery_id);
+            sendto(discovery_socket,answer,size,MSG_DONTWAIT,(struct sockaddr *)&from,length);
+        }
+    }
+    if (listener >= 0) {
+        int fd=accept(listener,NULL,NULL);
+        if(fd>=0) {
+            if(business.socket>=0 || fcntl(fd,F_SETFL,O_NONBLOCK)<0) close(fd);
+            else {
+                business.socket=fd; business.generation=++next_generation;
+                business.disconnect_requested=false; business.close_at=0;
+                moto_connect(sdk,business.generation);
+            }
+        }
+    }
+    if (business.socket < 0) return;
+    for(unsigned budget=0;budget<4 && !business.disconnect_requested;++budget) {
+        uint8_t bytes[2048]; int count=recv(business.socket,bytes,sizeof bytes,MSG_DONTWAIT);
+        if(count>0) {
+            if(moto_receive(sdk,business.generation,bytes,(size_t)count)<0) business.disconnect_requested=true;
+        } else { if(!count || (errno!=EAGAIN && errno!=EWOULDBLOCK)) business.disconnect_requested=true; break; }
+    }
+    if(!business.disconnect_requested) moto_poll(sdk);
+    if(business.disconnect_requested && clock_ms(NULL)>=business.close_at) {
+        moto_disconnect(sdk,business.generation); close(business.socket); business.socket=-1;
+    }
 }
 static void start_ble_host(void) {
     terminal_ancs_init();
@@ -508,6 +589,7 @@ void p4_terminal_start(void) {
     cfg.instrument = terminal_board_instrument_port();
     cfg.pairing_pin = true; cfg.persist_pairing_auth = persist_auth;
     assert(load_auth(&cfg.pairing_auth));
+    shared_auth = cfg.pairing_auth;
     /* The backend supplies all model capabilities and operation limits after owner authentication. */
     terminal_configure_board(&cfg, video_ready);
     simulated_state.values[MOTO_VOLUME] = 50;
@@ -516,6 +598,8 @@ void p4_terminal_start(void) {
     base_config = cfg;
     peers[0].conn = peers[1].conn = BLE_HS_CONN_HANDLE_NONE;
     active = &peers[0]; assert(create_peer(active));
-    sdk = active->sdk; tls = active->tls;
+    business.wifi = true; business.socket = -1;
+    assert(create_peer(&business));
+    sdk = business.sdk; tls = business.tls;
     atomic_store(&sdk_ready, true);
 }

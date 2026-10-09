@@ -106,7 +106,7 @@ void terminal_map_event(const moto_event *e){
         for(unsigned i=0;i<coarse_count;i++)moto_map_project(e->route->points[i],18,&coarse[i].x,&coarse[i].y);
         ++generation;break;
     case MOTO_EVENT_POSITION:
-        if(!positioned)ESP_LOGI("MotoMap","first BLE position received");
+        if(!positioned)ESP_LOGI("MotoMap","first position received");
         position=*e->position;positioned=true;position_until=esp_timer_get_time()/1000+position.ttl_ms;++generation;break;
     case MOTO_EVENT_POSITION_EXPIRED:position_until=0;++generation;break;
     case MOTO_EVENT_NAV_END:case MOTO_EVENT_CLOSED:case MOTO_EVENT_UNPAIR:

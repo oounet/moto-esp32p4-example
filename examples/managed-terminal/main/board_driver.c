@@ -14,44 +14,44 @@ static int load_license(void *user, uint8_t bytes[512], char hardware[65], uint8
      * Return 0 only after all three outputs are filled. Never ship a private key. */
     return -1;
 }
-static int ble_send(void *user, uint64_t connection, const uint8_t *bytes, size_t size) {
+static int transport_send(void *user, uint64_t connection, const uint8_t *bytes, size_t size) {
     (void)user;
     (void)connection;
     (void)bytes;
     (void)size;
-    /* Copy up to size bytes into your BLE TX queue, split by ATT MTU.
-     * Return copied count; 0 while TX queue/CCCD unavailable; negative if disconnected. */
+    /* Copy up to size bytes into your bounded TCP TX queue.
+     * Return copied count; 0 while TX queue busy; negative if disconnected. */
     return -1;
 }
-static void ble_close(void *user, uint64_t connection) {
+static void transport_close(void *user, uint64_t connection) {
     (void)user;
     (void)connection;
-    /* Request an idempotent GAP disconnect for exactly this generation. */
+    /* Request an idempotent socket close for exactly this generation. */
 }
 void board_fill_port(moto_terminal_port *port) {
     *port = (moto_terminal_port){
-        .load_license = load_license, .ble_send = ble_send, .ble_close = ble_close};
+        .load_license = load_license, .transport_send = transport_send, .transport_close = transport_close};
     /* ESP-IDF RNG, clock and atomic NVS owner storage are supplied by SDK. */
 }
-int board_start_ble(moto_terminal *value, const uint8_t advertisement[31]) {
+int board_start_connection(moto_terminal *value) {
     terminal = value;
-    (void)advertisement;
-    /* Start your board's radio (P4 needs its radio companion), create documented
-     * GATT RX/TX service and advertise the exact 31 bytes. Wire GAP/RX callbacks
-     * below and implement ordered TX. Return 0 only when radio/GATT is ready. */
-    puts("board_start_ble: BSP not implemented");
+    /* Start persistent AP, UDP discovery (5000), and TCP listener (5004).
+     * Forward each accepted socket to SDK with its own generation and ordered bytes.
+     * Return success only when the network is usable. BLE notifications use a
+     * separate auxiliary core instance, as shown in the full P4 reference. */
+    puts("board_start_connection: BSP not implemented");
     return -1;
 }
-void board_stop_ble(void) { /* Stop BLE AND TCP callbacks before destroying terminal. */
+void board_stop_connection(void) { /* Stop BLE AND TCP callbacks before destroying terminal. */
     terminal = NULL;
 }
-moto_result board_on_ble_connected(uint64_t *id) {
+moto_result board_on_connection_connected(uint64_t *id) {
     return moto_terminal_connected(terminal, id);
 }
-moto_result board_on_ble_rx(uint64_t id, const uint8_t *p, size_t n) {
+moto_result board_on_connection_rx(uint64_t id, const uint8_t *p, size_t n) {
     return moto_terminal_receive(terminal, id, p, n);
 }
-void board_on_ble_disconnected(uint64_t id) {
+void board_on_connection_disconnected(uint64_t id) {
     (void)moto_terminal_disconnected(terminal, id);
 }
 void board_show_pin(uint32_t pin, uint32_t seconds) {

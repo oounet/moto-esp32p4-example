@@ -4,6 +4,8 @@
 #include "ui/electric_ui.h"
 void p4_terminal_start(void);
 bool moto_terminal_ble_ready(void);
+bool moto_terminal_wifi_connected(void);
+bool moto_terminal_bluetooth_connected(void);
 bool moto_terminal_video_ready(void);
 bool hud_display_init(void);
 void hud_display_set_provisioning(bool required);

@@ -4,7 +4,7 @@ moto_result example_ota_transport(moto_terminal_config *c, moto_ota_simulator **
     moto_ota_simulator *sim = moto_ota_simulator_create();
     if (!sim) return MOTO_IO;
     c->ota = moto_ota_simulator_port(sim);
-    c->wifi_ota = false; /* Start with BLE; enable Wi-Fi only after bulk.c is wired. */
+    c->wifi_ota = false; /* Use the Wi-Fi business session; enable dedicated bulk TCP only after bulk.c is wired. */
     *out = sim;
     return MOTO_OK;
 }

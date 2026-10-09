@@ -8,7 +8,7 @@ Start with the full board application. For a new BSP use the separate managed ex
 | --- | --- | --- | --- |
 | Startup, lifetime, errors | [quick_start.c](../examples/managed-terminal/snippets/quick_start.c) / [api.c](../examples/managed-terminal/snippets/api.c) | [main/terminal.c](../main/terminal.c) | Board application wired; facade includes shutdown and queue retry |
 | License and pairing | [license.c](../examples/managed-terminal/snippets/license.c) | [main/factory_license.c](../main/factory_license.c) / [main/factory_usb.c](../main/factory_usb.c) | Requires device license and trusted public key; NVS persistence |
-| BLE, PIN, reconnect | [bluetooth.c](../examples/managed-terminal/snippets/bluetooth.c) | [main/terminal.c](../main/terminal.c) | P4+C6 NimBLE; root supports authenticated connection handoff |
+| Wi-Fi, PIN, reconnect | [bluetooth.c](../examples/managed-terminal/snippets/bluetooth.c) | [main/terminal.c](../main/terminal.c) | TCP 5004 business, UDP 5000 discovery; separate BLE notifications and bootstrap |
 | Theme and phone battery | [main/main.c](../examples/managed-terminal/main/main.c) | [main/terminal_board.c](../main/terminal_board.c) / [main/ui/electric_ui.c](../main/ui/electric_ui.c) | Reference UI wired; change layout on UI task |
 | Vehicle control, telemetry, faults | [vehicle.c](../examples/managed-terminal/snippets/vehicle.c) / [faults.c](../examples/managed-terminal/snippets/faults.c) | [main/terminal_board.c](../main/terminal_board.c) | Explicit DEMO; replace with real CAN/UART |
 | Navigation HUD | [video.c](../examples/managed-terminal/snippets/video.c) | [main/hud_view.c](../main/hud_view.c) / [main/terminal_board.c](../main/terminal_board.c) | Turn/distance/road rendering remains active during video |
@@ -23,7 +23,7 @@ Start with the full board application. For a new BSP use the separate managed ex
 | Wi-Fi bulk transfer | [bulk.c](../examples/managed-terminal/snippets/bulk.c) | — | Compiled template; SDK owns TLS, BSP owns TCP; dispatch by purpose |
 | OTA transport | [ota.c](../examples/managed-terminal/snippets/ota.c) | — | Explicit simulator: hash/resume/status; no Flash write, reboot or install |
 | Validation and troubleshooting | [testing.c](../examples/managed-terminal/snippets/testing.c) | [tools/test_host.py](../tools/test_host.py) | Build and memory/color/UI checks; board acceptance still required |
-| Offline maps | [Integration](OFFLINE_MAPS.en.md) | `main/route_map_*.c` | Root project: compressed transfers, bounded window and BLE positions; requires updated SDK |
+| Offline maps | [Integration](OFFLINE_MAPS.en.md) | `main/route_map_*.c` | Root project: compressed transfers, bounded window and Wi-Fi positions; requires updated SDK |
 
 ## Suggested order
 

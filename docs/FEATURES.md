@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 启动、生命周期、错误处理 | [quick_start.c](../examples/managed-terminal/snippets/quick_start.c) / [api.c](../examples/managed-terminal/snippets/api.c) | [main/terminal.c](../main/terminal.c) | 根工程已接板；标准入口含退出与队列重试 |
 | 设备授权与绑定 | [license.c](../examples/managed-terminal/snippets/license.c) | [main/factory_license.c](../main/factory_license.c) / [main/factory_usb.c](../main/factory_usb.c) | 需要本设备授权与可信公钥，NVS 持久化 |
-| BLE、PIN、重连 | [bluetooth.c](../examples/managed-terminal/snippets/bluetooth.c) | [main/terminal.c](../main/terminal.c) | P4+C6 NimBLE 实现；根工程支持双连接认证接管 |
+| Wi-Fi、PIN、重连 | [bluetooth.c](../examples/managed-terminal/snippets/bluetooth.c) | [main/terminal.c](../main/terminal.c) | TCP 5004 主连接、UDP 5000 发现；独立 BLE 通知与配对引导 |
 | 日夜主题、手机电量 | [main/main.c](../examples/managed-terminal/main/main.c) | [main/terminal_board.c](../main/terminal_board.c) / [main/ui/electric_ui.c](../main/ui/electric_ui.c) | 参考 UI 已接入，修改布局只改 UI 任务 |
 | 控车、车况、故障 | [vehicle.c](../examples/managed-terminal/snippets/vehicle.c) / [faults.c](../examples/managed-terminal/snippets/faults.c) | [main/terminal_board.c](../main/terminal_board.c) | 根工程为显式 DEMO；量产替换 CAN/UART |
 | 导航 HUD | [video.c](../examples/managed-terminal/snippets/video.c) | [main/hud_view.c](../main/hud_view.c) / [main/terminal_board.c](../main/terminal_board.c) | 转向、距离、道路等事件绘制，投屏期间也保留 |
@@ -23,7 +23,7 @@
 | Wi-Fi 大文件 | [bulk.c](../examples/managed-terminal/snippets/bulk.c) | — | 编译模板；SDK 负责 TLS，客户接 TCP；与视频按 purpose 分流 |
 | OTA 传输 | [ota.c](../examples/managed-terminal/snippets/ota.c) | — | 显式模拟器：校验、续传、状态；不写 Flash、不重启、不升级 |
 | 联调与排障 | [testing.c](../examples/managed-terminal/snippets/testing.c) | [tools/test_host.py](../tools/test_host.py) | 编译、内存/色彩/UI 算法检查；设备验收仍需实板 |
-| 离线地图 | [接入说明](OFFLINE_MAPS.md) | `main/route_map_*.c` | 根工程已接压缩传输、有限窗口与 BLE 位置；需新版二进制 SDK |
+| 离线地图 | [接入说明](OFFLINE_MAPS.md) | `main/route_map_*.c` | 根工程已接压缩传输、有限窗口与 Wi-Fi 位置；需新版二进制 SDK |
 
 ## 建议接入顺序
 

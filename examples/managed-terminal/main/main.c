@@ -26,8 +26,8 @@ void app_main(void) {
     board_fill_port(&c.port);
     c.hardware_revision = "YOUR-BOARD-REV";
     c.firmware_version = "1.0.0";
-    /* ABI 3: enable only after implementing BSP storage/receipts/decoders.
-     * c.advertising = board_advertising_port();  // BLE first
+    /* ABI 5: enable only after implementing BSP storage/receipts/decoders.
+     * c.advertising = board_advertising_port();  // authenticated control stream
      * c.bulk = board_bulk_port();               // optional TCP byte transport
      * c.wifi_advertising = true;                // requires both ports above
      * Routes/media/instruments are opt-in; see FreeRTOS_功能接入.md. */
@@ -44,13 +44,12 @@ void app_main(void) {
                moto_terminal_result_name(error.code));
         return;
     }
-    uint8_t advertising[31];
-    if (moto_terminal_advertising(t, advertising) != MOTO_OK || moto_terminal_start(t) != MOTO_OK) {
+    if (moto_terminal_start(t) != MOTO_OK) {
         moto_terminal_destroy(t);
         return;
     }
-    if (board_start_ble(t, advertising) != 0) {
-        board_stop_ble();
+    if (board_start_connection(t) != 0) {
+        board_stop_connection();
         while (moto_terminal_stop(t, 1000) == MOTO_AGAIN) {
         }
         moto_terminal_destroy(t);
@@ -85,8 +84,8 @@ void app_main(void) {
                 if (r == MOTO_FULL)
                     vTaskDelay(pdMS_TO_TICKS(10));
             } while (r == MOTO_FULL);
-            if (r != MOTO_OK)
-                board_stop_hotspot();
+            /* On stale completion, release only transfer resources in the BSP.
+             * Keep AP/discovery/control listener alive for the next session. */
             break;
         }
         case MOTO_EVENT_STREAM_PREPARE:
@@ -101,12 +100,12 @@ void app_main(void) {
             board_stop_video();
             break;
         case MOTO_EVENT_WIFI_STOP:
-            board_stop_hotspot();
+            /* Keep AP/discovery/control listener alive for the next session. */
             break;
         case MOTO_EVENT_CLOSED:
             board_stop_video();
             board_clear_pin();
-            board_stop_hotspot();
+            /* Keep AP/discovery/control listener alive for the next session. */
             break;
         case MOTO_EVENT_VEHICLE_COMMAND:
             /* This demo has no CAN/GPIO control implementation: report real failure. */

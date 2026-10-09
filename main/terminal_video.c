@@ -77,6 +77,15 @@ static int udp = -1;
 static bool wifi_initialized, ap_started, manual_ap;
 static char ap_ssid[33], ap_password[33];
 static esp_netif_t *ap;
+static portMUX_TYPE credentials_lock = portMUX_INITIALIZER_UNLOCKED;
+bool terminal_video_wifi_credentials(char ssid[33], char password[33]) {
+    if (!atomic_load(&ap_radio_ready)) return false;
+    portENTER_CRITICAL(&credentials_lock);
+    memcpy(ssid, ap_ssid, 33); memcpy(password, ap_password, 33);
+    portEXIT_CRITICAL(&credentials_lock);
+    return ssid[0] && password[0];
+}
+
 static moto_video *receiver;
 static esp_h264_dec_handle_t decoder;
 static jpeg_decoder_handle_t jpeg_decoder;
@@ -279,9 +288,18 @@ static bool open_ap(completion *done)
         ap_started = true;
         for (unsigned i = 0; i < 100 && !atomic_load(&ap_radio_ready); ++i) vTaskDelay(pdMS_TO_TICKS(50));
         if (!atomic_load(&ap_radio_ready)) return false;
+        portENTER_CRITICAL(&credentials_lock);
         memcpy(ap_ssid, done->ssid, sizeof ap_ssid);
         memcpy(ap_password, done->password, sizeof ap_password);
-        if (saved) manual_ap = true;
+        portEXIT_CRITICAL(&credentials_lock);
+        manual_ap = true;
+        if (!saved) {
+            work credentials = {0};
+            memcpy(credentials.ssid, done->ssid, sizeof credentials.ssid);
+            memcpy(credentials.password, done->password, sizeof credentials.password);
+            if (!save_ap(&credentials)) { memset(&credentials,0,sizeof credentials); return false; }
+            memset(&credentials,0,sizeof credentials);
+        }
     } else {
         memcpy(done->ssid, ap_ssid, sizeof done->ssid);
         memcpy(done->password, ap_password, sizeof done->password);
@@ -479,7 +497,7 @@ static void video_task(void *context)
 {
     (void)context; packet incoming; uint64_t report_at = now_ms();
     completion boot = {0};
-    if (load_ap(&boot)) {
+    {
         if (open_ap(&boot)) ESP_LOGI(TAG, "Persistent manual AP restored: %s", boot.ssid);
         else { manual_ap = false; cleanup(); ESP_LOGE(TAG, "Persistent manual AP start failed"); }
     }
@@ -579,8 +597,9 @@ bool terminal_video_init(void)
     if (ready) ready = esp_h264_dec_open(probe) == ESP_H264_ERR_OK;
     if (probe) { esp_h264_dec_close(probe); esp_h264_dec_del(probe); }
     ready = jpeg_selftest() && ready;
-    return ready && xTaskCreatePinnedToCore(receive_task, "sdk_video_rx", 6144, NULL, 6, NULL, 0) == pdPASS &&
+    bool tasks_ready = xTaskCreatePinnedToCore(receive_task, "sdk_video_rx", 6144, NULL, 6, NULL, 0) == pdPASS &&
         xTaskCreatePinnedToCore(video_task, "sdk_video", 12288, NULL, 4, NULL, 0) == pdPASS;
+    return ready && tasks_ready;
 }
 bool terminal_video_manual_ap(void)
 {

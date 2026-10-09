@@ -1,6 +1,7 @@
 #pragma once
 #include "moto/sdk.h"
 bool terminal_video_init(void);
+bool terminal_video_wifi_credentials(char ssid[33], char password[33]);
 /* Local USB request: start/reuse the manual AP; credentials reply only over USB. */
 bool terminal_video_manual_ap(void);
 /* Save manual AP credentials in NVS and restore this AP automatically after reboot. */

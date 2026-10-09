@@ -43,6 +43,6 @@ NVS 示例的每条 blob 同时保存广告 UUID、哈希和消费位；commit �
 
 Each NVS blob contains UUID, hash and consumed bit. Success requires commit; consumption precedes playback, allowing a missed play on power loss but preventing replay. Ambiguous failures stop playback until reopening storage. The sample refuses new entries at 64 receipts. Production needs retention, capacity and endurance design. Never clear receipts on unbind.
 
-BLE 小图验证完成后，再接 `bulk.c` 的 TCP 回调，填写 `c.bulk` 和 `c.wifi_advertising=true`。SDK 管理 TLS 和收发背压；显示、Wi-Fi/TCP 和安全状态仍由应用负责。例子只声明 PNG，不声明未实现的 GIF/视频支持。
+Wi-Fi 主通道小图验证完成后，再接 `bulk.c` 的 TCP 回调，填写 `c.bulk` 和 `c.wifi_advertising=true`。SDK 管理 TLS 和收发背压；显示、Wi-Fi/TCP 和安全状态仍由应用负责。例子只声明 PNG，不声明未实现的 GIF/视频支持。
 
-After small PNGs work over BLE, wire `bulk.c` TCP callbacks, set `c.bulk` and `c.wifi_advertising=true`. SDK owns TLS/backpressure; the application owns display, Wi-Fi/TCP and safety state. This example declares PNG only.
+After small PNGs work over the Wi-Fi business session, wire `bulk.c` TCP callbacks, set `c.bulk` and `c.wifi_advertising=true`. SDK owns TLS/backpressure; the application owns display, Wi-Fi/TCP and safety state. This example declares PNG only.

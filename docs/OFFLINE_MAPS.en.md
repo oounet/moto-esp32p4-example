@@ -6,7 +6,7 @@
 
 In the APP, open Profile → Offline maps, search for a city and download it. Connect to device Wi-Fi before navigation, keep the APP in the foreground and wait for device maps to be ready before locking the phone. The phone stores the city; the instrument receives only the area around the route.
 
-Live navigation video takes priority whenever available. When video stops, the instrument draws the received basemap and route using Bluetooth position updates. Video resumes automatically when available again. Cached maps do not provide independent offline routing: destination search, route planning and rerouting still use the phone navigation service.
+Live navigation video takes priority whenever available. When video stops, the instrument draws the received basemap and route using Wi-Fi position updates. Video resumes automatically when available again. Cached maps do not provide independent offline routing: destination search, route planning and rerouting still use the phone navigation service.
 
 ## What is stored
 
@@ -21,9 +21,9 @@ Route preparation reads the saved cache. Vector maps are rendered into route ima
 
 ## Board integration
 
-The [ESP32-P4 open reference application](https://github.com/oounet/moto-esp32p4-example) implements this in `main/route_map_*.c` using public low-level SDK C APIs. Use a matching **2026-10-08 revision 8 or newer binary package**. The `moto_map_port` structure changed: update headers and archives together.
+The [ESP32-P4 open reference application](https://github.com/oounet/moto-esp32p4-example) implements this in `main/route_map_*.c` using public low-level SDK C APIs. Use a matching **2026-10-08 revision 10 or newer binary package**. The `moto_map_port` structure changed: update headers and archives together.
 
-Maps are wired into the full P4 root project. The separate ABI 3 `examples/managed-terminal` facade does not yet expose the map port. Do not attach concurrent low-level calls to its private SDK instance or start a second terminal.
+Maps are wired into the full P4 root project. The separate ABI 5 `examples/managed-terminal` facade does not yet expose the map port. Do not attach concurrent low-level calls to its private SDK instance or start a second terminal.
 
 | File | Responsibility |
 | --- | --- |
@@ -43,9 +43,9 @@ cfg.map = terminal_map_port();
 cfg.route_navigation = cfg.map.max_bytes != 0;
 ```
 
-On the SDK owner thread, forward only the active authenticated owner's events to `terminal_map_event(event)` and periodically call `terminal_map_poll(sdk)`. The example uses the NimBLE host at 20 ms intervals and bounds each TCP read batch. Never block Bluetooth processing indefinitely. The display task calls `terminal_map_draw`; a mutex protects shared state. Callback pointers are borrowed, so copy route and position values before retaining them.
+On the SDK owner thread, forward only the Wi-Fi business instance's authenticated owner events to `terminal_map_event(event)` and periodically call `terminal_map_poll(sdk)`. The example uses the NimBLE host at 20 ms intervals and bounds each TCP read batch. Never block the SDK owner thread indefinitely. The display task calls `terminal_map_draw`; a mutex protects shared state. Callback pointers are borrowed, so copy route and position values before retaining them.
 
-Maps share the navigation access point but use TCP `192.168.4.1:5003`; video uses UDP 5001. Working video does not prove the map port is reachable. TLS credentials come from the current encrypted Bluetooth session. Navigation, route, owner or session changes invalidate the old transfer. Never log credentials or use universal fixed keys.
+Maps share the navigation access point but use TCP `192.168.4.1:5003`; video uses UDP 5001. Working video does not prove the map port is reachable. TLS credentials come from the current encrypted Wi-Fi business session. Navigation, route, owner or session changes invalidate the old transfer. Never log credentials or use universal fixed keys.
 
 ## Compressed continuous transfer
 
@@ -61,7 +61,7 @@ The phone losslessly compresses the map package and sends it continuously, witho
 
 1. **Video works but maps are not ready:** check TCP 5003, the local subnet, phone local-network permission and map TLS state, separately from video UDP.
 2. **A saved city still needs preparation:** city data and route images are different. A new route may need local rendering; keep the APP foregrounded. Generated images are reusable.
-3. **Only HUD or a route after locking:** confirm transfer completion, fresh BLE positions and city coverage. Locking during initial preparation can interrupt rendering.
+3. **Only HUD or a route after locking:** confirm transfer completion, fresh Wi-Fi positions and city coverage. Locking during initial preparation can interrupt rendering.
 4. **Missing maps on a long route or after rerouting:** check moving-window updates, Wi-Fi, storage and cache coverage. New areas may require returning to the foreground.
 5. **Stale display after navigation ends:** clear map and position state for NAV_END, CLOSED, UNPAIR and owner handoff, and reject late callbacks from prior generations.
 

@@ -43,8 +43,8 @@ def import_package(archive, destination):
             if hashlib.sha256(z.read(prefix + rel)).hexdigest() != digest:
                 raise ValueError("Checksum mismatch: " + rel)
         info = json.loads(z.read(prefix + 'BUILD_INFO.json'))
-        if (info.get('distribution'), info.get('target'), info.get('idf_version'), info.get('freertos_abi')) != ('binary-only', 'esp32p4', '5.5.4', 3):
-            raise ValueError("Requires binary ESP32-P4 / IDF 5.5.4 / ABI 3 package")
+        if (info.get('distribution'), info.get('target'), info.get('idf_version'), info.get('freertos_abi')) != ('binary-only', 'esp32p4', '5.5.4', 5):
+            raise ValueError("Requires binary ESP32-P4 / IDF 5.5.4 / ABI 5 package")
         selected = {p for p in actual if p.startswith(('include/', 'lib/', 'components/moto_prebuilt/', 'third_party_notices/')) or p in {'BUILD_INFO.json', 'VALIDATION.json', 'THIRD_PARTY_NOTICES.txt'}}
         required = {'include/moto/sdk.h', 'include/moto_freertos/terminal.h', 'components/moto_prebuilt/CMakeLists.txt', 'lib/esp32p4-idf5.5.4/libmoto_sdk.a', 'lib/esp32p4-idf5.5.4/libmoto_freertos.a'}
         if not required <= selected or any(PurePosixPath(p).suffix in {'.c', '.cpp', '.py', '.motolic', '.pem', '.key'} for p in selected):

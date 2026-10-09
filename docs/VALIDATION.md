@@ -1,5 +1,11 @@
 # 验证记录 / Validation
 
+当前接入使用 SDK 0.1.0、package revision 10、FreeRTOS ABI 5；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+
+Current integration requires SDK 0.1.0, package revision 10 and FreeRTOS ABI 5, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## 历史构建 / Historical build — 2026-10-04
+
 2026-10-04：ESP-IDF 5.5.4、ESP32-P4、SDK 0.1.0 ABI 3 二进制包。包 SHA-256：`2a7a91d9ab54a03b31cddd8d3be2f01dc371c5bb956476d06febdd4dc2f5da18`。LVGL 固定提交见 `tools/fetch_lvgl.py`。
 
 ## 自动检查 / Automated checks
@@ -20,7 +26,7 @@ Both ESP-IDF projects build against delivered archives. Host tests exercise allo
 No hardware was flashed or reconfigured for this publication. The new native LVGL reference layout needs visual/frame-rate checks on the target board. Validate:
 
 1. 本机 License、错误公钥/错误硬件标识拒绝、PIN 与重连。Correct device license, invalid-trust rejection, PIN and reconnect.
-2. 蓝牙断连、同账号接管、旧会话不能控车。Disconnect, same-owner handoff, stale-session rejection.
+2. Wi-Fi 主业务断连、同账号接管、旧会话不能控车；蓝牙单独断开不影响业务。Wi-Fi disconnect, same-owner handoff and stale-session rejection; independent Bluetooth loss must not stop business traffic.
 3. 主题、Android 通知权限、iOS ANCS 授权/撤销。Theme, Android notifications and iOS ANCS permission/revocation.
 4. HUD 与视频并存；镜像不打开导航；Wi-Fi 切换、视频停止/恢复、显示回执。HUD/video coexistence, standalone mirror, Wi-Fi changes and actual presentation receipts.
 5. 真实 CAN/UART 执行失败、超时与 FULL 重试，不能重复执行动作。Real control failure/timeouts and retry without duplicate actuation.
@@ -41,3 +47,9 @@ Both projects build against revision 8 binary headers and archives. Host checks 
 本次未将公开参考 UI 刷入设备；iPhone/P4 整包传输实测来自内部完整仪表工程。公开 UI、持续骑行、后台窗口更新和 Android 真机需单独验收。
 
 The public reference UI was not flashed for this publication. Prior iPhone/P4 transfer evidence comes from the internal instrument application. Public UI, sustained riding, background window updates and Android hardware still require separate acceptance.
+
+## Wi-Fi 主业务 / Wi-Fi business transport
+
+2026-10-09：使用 SDK 0.1.0 / FreeRTOS ABI 5、ESP-IDF 5.5.4 匹配二进制包，根工程与 `examples/managed-terminal` 编译链接通过；主机 ASan/UBSan、Python 检查与公开文件审计通过。最终包的头文件、静态库和组件文件逐字节匹配已构建的导入内容。
+
+The root and managed projects build against matching ABI 5 archives. Host sanitizer tests, Python checks and the public distribution audit pass. Build and host evidence do not establish phone Wi-Fi/Bluetooth interoperability or physical UI acceptance.
