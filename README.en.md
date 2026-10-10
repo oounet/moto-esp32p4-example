@@ -58,3 +58,5 @@ Application code is MIT; third-party files retain their licenses in [THIRD_PARTY
 ## Offline maps
 
 The root project includes compressed map reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 11 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
+
+The current validated package is revision 12, with optimized CRC32 and envelope parsing and unchanged ABI 6. Both the root and managed examples link successfully; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).

@@ -1,8 +1,14 @@
 # 验证记录 / Validation
 
-当前接入使用 SDK 0.1.0、package revision 11、FreeRTOS ABI 6；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前接入使用 SDK 0.1.0、package revision 12、FreeRTOS ABI 6；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-Current integration requires SDK 0.1.0, package revision 11 and FreeRTOS ABI 6, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+Current integration requires SDK 0.1.0, package revision 12 and FreeRTOS ABI 6, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## SDK 校验优化 / SDK validation optimization — 2026-10-10
+
+匹配 revision 12 的头文件与两个静态库已经完成根工程、managed-terminal 的 ESP-IDF 5.5.4 编译链接；主机测试和公开索引审计通过。新库优化 CRC32 与消息外层解析，ABI 6 和线协议不变。本轮没有刷板或测量开发板运行速度，函数基准不能代替真实网络、解码和显示验收。
+
+The root and managed projects build and link with matching revision 12 headers and archives on ESP-IDF 5.5.4. Host tests and the public-index audit pass. CRC32 and envelope parsing are optimized with no ABI 6 or wire-format change. No board flashing or runtime timing was performed; function benchmarks do not establish network, decoder or display performance.
 
 ## 历史构建 / Historical build — 2026-10-04
 

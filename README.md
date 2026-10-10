@@ -58,3 +58,5 @@ python3 tools/audit_public.py
 ## 离线地图
 
 根工程包含整包压缩接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 11 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
+
+当前验证包为 revision 12，优化 CRC32 与消息外层解析，ABI 6 不变。根工程和 managed 示例均已链接验证；实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
