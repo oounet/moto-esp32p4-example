@@ -21,9 +21,9 @@
 
 ## 接入开发板
 
-完整实现见 [ESP32-P4 开源工程](https://github.com/oounet/moto-esp32p4-example)的 `main/route_map_*.c`，使用 SDK 公开底层 C API。需要 **2026-10-08 revision 10 或更新的匹配二进制包**：`moto_map_port` 已扩展，必须同时更新头文件与静态库。不能只替换头文件。
+完整实现见 [ESP32-P4 开源工程](https://github.com/oounet/moto-esp32p4-example)的 `main/route_map_*.c`，使用 SDK 公开底层 C API。需要 **2026-10-08 revision 11 或更新的匹配二进制包**：`moto_map_port` 已扩展，必须同时更新头文件与静态库。不能只替换头文件。
 
-目前地图端口接在完整 P4 根工程；独立 `examples/managed-terminal` 的 ABI 5 简化入口尚未暴露地图端口。已有简化入口工程不能直接将底层接口并发挂到 SDK 私有实例上，也不要启动第二个终端。
+目前地图端口接在完整 P4 根工程；独立 `examples/managed-terminal` 的 ABI 6 简化入口尚未暴露地图端口。已有简化入口工程不能直接将底层接口并发挂到 SDK 私有实例上，也不要启动第二个终端。
 
 | 文件 | 负责内容 |
 | --- | --- |

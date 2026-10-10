@@ -1,8 +1,8 @@
 # 验证记录 / Validation
 
-当前接入使用 SDK 0.1.0、package revision 10、FreeRTOS ABI 5；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前接入使用 SDK 0.1.0、package revision 11、FreeRTOS ABI 6；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-Current integration requires SDK 0.1.0, package revision 10 and FreeRTOS ABI 5, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+Current integration requires SDK 0.1.0, package revision 11 and FreeRTOS ABI 6, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
 
 ## 历史构建 / Historical build — 2026-10-04
 

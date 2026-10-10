@@ -16,6 +16,7 @@
 #include "freertos/task.h"
 #include "driver/usb_serial_jtag.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -62,7 +63,7 @@ typedef struct {
     moto_tls *tls;
     uint16_t conn;
     int socket;
-    bool wifi;
+    bool wifi, socket_failed;
     uint64_t wifi_request;
     uint64_t generation, connected_at, close_at, session_started;
     bool subscribed, disconnect_requested, candidate;
@@ -71,7 +72,8 @@ typedef struct {
 } ble_peer;
 static ble_peer peers[2];
 static ble_peer *active; /* BLE notification/bootstrap owner only. */
-static ble_peer business;
+static ble_peer business, mirror;
+static int mirror_listener=-1;
 static int listener = -1, discovery_socket = -1;
 static moto_pairing_auth shared_auth;
 static void poll_wifi(void);
@@ -92,6 +94,14 @@ static int send_cipher(void *user, const uint8_t *bytes, size_t size) {
     ble_peer *peer = user;
     if (peer->wifi) {
         int count = send(peer->socket, bytes, size, MSG_DONTWAIT);
+        if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+            peer->socket_failed=true;
+            ESP_LOGW(TAG, "TCP_SEND peer=%s errno=%d internal=%u dma_largest=%u",
+                peer == &mirror ? "mirror" : "business", errno,
+                (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+            return 0; /* owner tick handles loss after the SDK callback returns */
+        }
         return count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) ? 0 : count;
     }
     if (peer->conn == BLE_HS_CONN_HANDLE_NONE) return -1;
@@ -183,10 +193,12 @@ static int cloud_hmac(void *user, const uint8_t *data, size_t size, uint8_t out[
 static void on_event(void *user, const moto_event *event) {
     ble_peer *peer = user;
     if (event->kind == MOTO_EVENT_CLOSED) {
+        ESP_LOGW(TAG, "SDK_CLOSED peer=%s", peer == &mirror ? "mirror" : peer->wifi ? "business" : "bluetooth");
         peer->disconnect_requested = true;
         peer->close_at = clock_ms(NULL) + 150;
     }
     if (event->kind == MOTO_EVENT_READY) peer->session_started = clock_ms(NULL);
+    if (peer==&mirror) return;
     if (!peer->wifi) {
         /* Bluetooth owns only pairing UI and notifications, never media cleanup. */
         if (event->kind == MOTO_EVENT_ANCS_SHARING && peer == active) terminal_ancs_request(event->value == 1);
@@ -471,6 +483,8 @@ static bool create_peer(ble_peer *peer) {
     moto_config cfg = base_config;
     cfg.user = peer; cfg.secure = moto_tls_transport(peer->tls);
     cfg.bluetooth_auxiliary = !peer->wifi;
+    cfg.mirror_auxiliary = peer==&mirror;
+    cfg.mirror_control = peer==&business;
     cfg.read_pairing_auth = read_auth;
     if (!load_auth(&cfg.pairing_auth)) { moto_tls_destroy(peer->tls); peer->tls = NULL; return false; }
     peer->sdk = moto_create(&cfg);
@@ -487,8 +501,62 @@ static int open_listener(int type, uint16_t port) {
         (type == SOCK_STREAM && listen(fd,1))) { close(fd); return -1; }
     return fd;
 }
+static void poll_socket(ble_peer *peer) {
+    const char *name = peer == &mirror ? "mirror" : "business";
+    for (unsigned budget=0; budget<4 && !peer->disconnect_requested; ++budget) {
+        uint8_t bytes[2048];
+        int count=recv(peer->socket,bytes,sizeof bytes,MSG_DONTWAIT);
+        if (count>0) {
+            int result=moto_receive(peer->sdk,peer->generation,bytes,(size_t)count);
+            if (result<0) {
+                ESP_LOGW(TAG,"TCP_RECEIVE peer=%s sdk_result=%d",name,result);
+                peer->disconnect_requested=true;
+            }
+        } else {
+            if (!count || (errno!=EAGAIN && errno!=EWOULDBLOCK)) {
+                ESP_LOGW(TAG,"TCP_RECEIVE peer=%s count=%d errno=%d",name,count,count ? errno : 0);
+                peer->disconnect_requested=true;
+            }
+            break;
+        }
+    }
+    if (!peer->disconnect_requested) {
+        int result=moto_poll(peer->sdk);
+        if (result<0) {
+            ESP_LOGW(TAG,"TCP_POLL peer=%s sdk_result=%d",name,result);
+            peer->disconnect_requested=true;
+        }
+    }
+    if (peer->socket_failed) peer->disconnect_requested=true;
+    if (peer->disconnect_requested && clock_ms(NULL)>=peer->close_at) {
+        if (peer==&business && moto_detach_mirror(peer->sdk,peer->generation)==MOTO_OK)
+            ESP_LOGI(TAG,"MIRROR_PRIMARY_DETACHED extension retains its bounded lease");
+        else moto_disconnect(peer->sdk,peer->generation);
+        close(peer->socket);peer->socket=-1;
+    }
+}
+/* Only the capture extension uses this TLS lease endpoint. No UI/business events. */
+static void poll_mirror(void) {
+    if(mirror_listener<0)mirror_listener=open_listener(SOCK_STREAM,5005);
+    if(mirror_listener>=0) {
+        int fd=accept(mirror_listener,NULL,NULL);
+        if(fd>=0) {
+            if(mirror.socket>=0 || fcntl(fd,F_SETFL,O_NONBLOCK)<0)close(fd);
+            else {
+                mirror.socket=fd;mirror.generation=++next_generation;
+                mirror.disconnect_requested=mirror.socket_failed=false;mirror.close_at=0;
+                if(moto_connect_mirror(mirror.sdk,sdk,mirror.generation)!=MOTO_OK) {
+                    close(fd);mirror.socket=-1;
+                }
+            }
+        }
+    }
+    if(mirror.socket<0)return;
+    poll_socket(&mirror);
+}
 /* Runs on the same SDK owner event queue as BLE, never from socket callbacks. */
 static void poll_wifi(void) {
+    poll_mirror();
     if (listener < 0) listener = open_listener(SOCK_STREAM,5004);
     if (discovery_socket < 0) discovery_socket = open_listener(SOCK_DGRAM,5000);
     if (discovery_socket >= 0) {
@@ -503,25 +571,19 @@ static void poll_wifi(void) {
     if (listener >= 0) {
         int fd=accept(listener,NULL,NULL);
         if(fd>=0) {
-            if(business.socket>=0 || fcntl(fd,F_SETFL,O_NONBLOCK)<0) close(fd);
+            if(business.socket>=0 || moto_mirror_detached(sdk) || fcntl(fd,F_SETFL,O_NONBLOCK)<0) close(fd);
             else {
                 business.socket=fd; business.generation=++next_generation;
-                business.disconnect_requested=false; business.close_at=0;
+                business.disconnect_requested=business.socket_failed=false; business.close_at=0;
                 moto_connect(sdk,business.generation);
             }
         }
     }
-    if (business.socket < 0) return;
-    for(unsigned budget=0;budget<4 && !business.disconnect_requested;++budget) {
-        uint8_t bytes[2048]; int count=recv(business.socket,bytes,sizeof bytes,MSG_DONTWAIT);
-        if(count>0) {
-            if(moto_receive(sdk,business.generation,bytes,(size_t)count)<0) business.disconnect_requested=true;
-        } else { if(!count || (errno!=EAGAIN && errno!=EWOULDBLOCK)) business.disconnect_requested=true; break; }
+    if (business.socket < 0) {
+        if (moto_mirror_detached(sdk)) (void)moto_poll(sdk);
+        return;
     }
-    if(!business.disconnect_requested) moto_poll(sdk);
-    if(business.disconnect_requested && clock_ms(NULL)>=business.close_at) {
-        moto_disconnect(sdk,business.generation); close(business.socket); business.socket=-1;
-    }
+    poll_socket(&business);
 }
 static void start_ble_host(void) {
     terminal_ancs_init();
@@ -601,5 +663,6 @@ void p4_terminal_start(void) {
     business.wifi = true; business.socket = -1;
     assert(create_peer(&business));
     sdk = business.sdk; tls = business.tls;
+    mirror.wifi=true;mirror.socket=-1;assert(create_peer(&mirror));
     atomic_store(&sdk_ready, true);
 }

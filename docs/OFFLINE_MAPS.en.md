@@ -21,9 +21,9 @@ Route preparation reads the saved cache. Vector maps are rendered into route ima
 
 ## Board integration
 
-The [ESP32-P4 open reference application](https://github.com/oounet/moto-esp32p4-example) implements this in `main/route_map_*.c` using public low-level SDK C APIs. Use a matching **2026-10-08 revision 10 or newer binary package**. The `moto_map_port` structure changed: update headers and archives together.
+The [ESP32-P4 open reference application](https://github.com/oounet/moto-esp32p4-example) implements this in `main/route_map_*.c` using public low-level SDK C APIs. Use a matching **2026-10-08 revision 11 or newer binary package**. The `moto_map_port` structure changed: update headers and archives together.
 
-Maps are wired into the full P4 root project. The separate ABI 5 `examples/managed-terminal` facade does not yet expose the map port. Do not attach concurrent low-level calls to its private SDK instance or start a second terminal.
+Maps are wired into the full P4 root project. The separate ABI 6 `examples/managed-terminal` facade does not yet expose the map port. Do not attach concurrent low-level calls to its private SDK instance or start a second terminal.
 
 | File | Responsibility |
 | --- | --- |

@@ -4,7 +4,7 @@
 
 面向 JC1060P470C_I_W_Y / JD9165 1024×600 屏、ESP32-P4 + ESP32-C6 的完整应用参考。Wi-Fi 配对、导航/镜像接收、HUD、通知和仪表切换使用实际板级驱动；车辆数据始终标记 DEMO。
 
-**本仓库开源应用与适配代码，Moto SDK 内部实现仍为闭源静态库。** 客户从接入团队取得 SDK 0.1.0 / ABI 5 / ESP-IDF 5.5.4 的二进制包和本设备授权。本仓库不包含 SDK 实现、二进制分发、设备授权或私钥。
+**本仓库开源应用与适配代码，Moto SDK 内部实现仍为闭源静态库。** 客户从接入团队取得 SDK 0.1.0 / ABI 6 / ESP-IDF 5.5.4 的二进制包和本设备授权。本仓库不包含 SDK 实现、二进制分发、设备授权或私钥。
 
 ## 先运行完整 P4 工程
 
@@ -13,7 +13,7 @@
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261009-abi5.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261010-abi6.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -34,7 +34,7 @@ idf.py -DMOTO_LICENSE_TRUST_HEADER=/absolute/path/to/moto-license-trust.h build
 ## 再按功能学习与移植
 
 - `main/`：完整板端应用，使用 SDK **公开的底层 C API**，包含 Wi-Fi 主业务、独立 BLE 通知及视频任务。此处不是 SDK 内部源码。
-- `examples/managed-terminal/`：面向新平台的简单 FreeRTOS ABI 5 接口，SDK 管理任务和事件；含各功能可编译示例及可替换 BSP。**独立工程，不和 main 创建两个终端实例。**
+- `examples/managed-terminal/`：面向新平台的简单 FreeRTOS ABI 6 接口，SDK 管理任务和事件；含各功能可编译示例及可替换 BSP。**独立工程，不和 main 创建两个终端实例。**
 - `docs/FEATURES.md`：逐项列出代码入口、运行状态、需要客户实现的部分和验证方法。广告、OTA、通话示例不代表本开发板已具备对应播放器、启动分区或 HFP 硬件。
 
 ```sh
@@ -57,4 +57,4 @@ python3 tools/audit_public.py
 
 ## 离线地图
 
-根工程包含整包压缩接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 10 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
+根工程包含整包压缩接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 11 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。

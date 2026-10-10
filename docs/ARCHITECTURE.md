@@ -12,7 +12,7 @@ The full application serializes public core/TLS APIs on the NimBLE host. UI and 
 
 `examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于从零移植到新板，不在 P4 主工程中再次启动；主工程展示 Wi-Fi 与 BLE 独立实例及通知连接接管。
 
-The separate managed example owns one terminal through the ABI 5 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
+The separate managed example owns one terminal through the ABI 6 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
 
 ## 生命周期 / Lifetime
 
@@ -37,3 +37,17 @@ The SDK owner receives authenticated map transfers. Validated maps replace displ
 AP 在启动时提供 DHCP，UDP 5000 用于发现、TCP 5004 承载主业务 TLS。BLE 配对引导与 Android 通知 / iOS ANCS 使用独立辅助 SDK/TLS 实例；两个实例在同一 owner 线程串行执行，共享持久化 owner 快照。蓝牙断开不终止主导航，业务断开不主动清理通知会话。UI 的 Wi-Fi / 蓝牙图标分别读取真实认证状态。
 
 The AP starts at boot. UDP 5000 provides discovery; TCP 5004 carries authenticated business traffic. Optional BLE bootstrap and Android notifications / iOS ANCS use a separate SDK/TLS instance. One owner thread serializes both instances and shared durable owner records. Each radio icon reflects its own authenticated connection. Video or bulk cleanup preserves the AP and primary listener.
+
+## iOS 镜像续期 / iOS mirror lease
+
+完整 P4 应用在 TCP 5005 提供独立镜像 TLS 实例，配置 `mirror_auxiliary=true` 并通过 `moto_connect_mirror` 绑定主实例。广播扩展使用主连接授予的本流随机授权续期，只能保活或停止该流；主连接关闭或流切换后授权失效。该端点与主业务在同一 owner 线程串行执行，辅助 CLOSED 不清理主显示/热点。JPEG 引擎和输出缓冲在启动时分配并保留到重启，视频 worker 独占使用。
+
+The full P4 app serves a separate TLS mirror lease on TCP 5005 using `mirror_auxiliary=true` and `moto_connect_mirror`. The capture extension may renew or stop only its granted stream. Closing the primary connection or replacing the stream revokes the grant. Both instances run on the same owner thread; auxiliary closure must not tear down the primary display or hotspot. One JPEG engine/output buffer is reserved at boot and reused exclusively by the video worker.
+
+TLS 动态缓冲使用 PSRAM（`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`），为 SDIO/JPEG 保留内部 DMA 内存。TCP 断开日志记录链路、错误码和发送失败时的内部空闲量，不记录凭据。
+
+TLS dynamic buffers use PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`) to leave internal DMA memory for SDIO/JPEG. TCP diagnostics identify the channel, error code and internal memory on send failure without recording credentials.
+
+主 TCP 意外丢失时，只有已委派的镜像可调用 `moto_detach_mirror` 保留；无主 socket 时仍在 owner 线程 poll 主实例。期间拒绝新主连接，辅助停止、20秒无续期或撤权后释放。显式用户断开仍使用 `moto_disconnect`。
+
+On unexpected primary TCP loss, only an already delegated mirror can use `moto_detach_mirror`. Continue polling the primary on its owner thread without a socket. Reject replacement primary connections until extension stop, twenty seconds without renewal, or revocation releases the session. Explicit user disconnection still uses `moto_disconnect`.

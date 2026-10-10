@@ -210,8 +210,8 @@ static void cleanup(void)
     xQueueReset(packets);
     if (receiver) { moto_video_destroy(receiver); receiver = NULL; }
     if (decoder) { esp_h264_dec_close(decoder); esp_h264_dec_del(decoder); decoder = NULL; }
-    if (jpeg_decoder) { jpeg_del_decoder_engine(jpeg_decoder); jpeg_decoder = NULL; }
-    free(jpeg_pixels); jpeg_pixels = NULL; jpeg_pixels_size = 0;
+    /* JPEG DMA resources are reserved once at boot. Stream teardown only clears
+     * ownership/pixels; reallocating descriptor chains amid Wi-Fi traffic can fail. */
     if (!manual_ap) {
         if (ap_started) { esp_wifi_stop(); ap_started = false; }
         atomic_store(&peer_ip, 0);
@@ -354,22 +354,20 @@ static bool jpeg_selftest(void)
 {
     extern const uint8_t jpeg_start[] asm("_binary_jpeg_selftest_jpg_start");
     extern const uint8_t jpeg_end[] asm("_binary_jpeg_selftest_jpg_end");
-    jpeg_decoder_handle_t engine = NULL;
     jpeg_decode_engine_cfg_t engine_config = {.timeout_ms = 100};
     jpeg_decode_memory_alloc_cfg_t memory = {.buffer_direction = JPEG_DEC_ALLOC_OUTPUT_BUFFER};
-    size_t allocated = 0;
-    uint8_t *output = jpeg_alloc_decoder_mem(WIDTH * 608 * 2, &memory, &allocated);
-    bool ok = output && valid_jpeg(jpeg_start, jpeg_end-jpeg_start) &&
-        jpeg_new_decoder_engine(&engine_config, &engine) == ESP_OK;
+    jpeg_pixels = jpeg_alloc_decoder_mem(WIDTH * 608 * 2, &memory, &jpeg_pixels_size);
+    bool ok = jpeg_pixels && valid_jpeg(jpeg_start, jpeg_end-jpeg_start) &&
+        jpeg_new_decoder_engine(&engine_config, &jpeg_decoder) == ESP_OK;
     uint32_t size = 0; uint64_t began = esp_timer_get_time();
     jpeg_decode_cfg_t config = {.output_format = JPEG_DECODE_OUT_FORMAT_RGB565,
         .rgb_order = JPEG_DEC_RGB_ELEMENT_ORDER_RGB};
-    if (ok) ok = jpeg_decoder_process(engine, &config, jpeg_start, jpeg_end-jpeg_start,
-        output, allocated, &size) == ESP_OK && size >= WIDTH*HEIGHT*2;
+    if (ok) ok = jpeg_decoder_process(jpeg_decoder, &config, jpeg_start, jpeg_end-jpeg_start,
+        jpeg_pixels, jpeg_pixels_size, &size) == ESP_OK && size >= WIDTH*HEIGHT*2;
     uint16_t samples[4] = {0};
     const int expected[4][3] = {{30,5,2},{2,60,2},{2,5,30},{30,60,30}};
     if (ok) for (unsigned i=0;i<4;i++) {
-        jpeg_copy_rgb565(&samples[i], output + (300*WIDTH+i*256+128)*2, 1);
+        jpeg_copy_rgb565(&samples[i], jpeg_pixels + (300*WIDTH+i*256+128)*2, 1);
         int values[3] = {samples[i]>>11,(samples[i]>>5)&63,samples[i]&31};
         /* The peripheral's YUV conversion expands the source range slightly. */
         for(unsigned c=0;c<3;c++) if(abs(values[c]-expected[i][c])>6)ok=false;
@@ -377,8 +375,11 @@ static bool jpeg_selftest(void)
     ESP_LOGI(TAG, "JPEG_SELFTEST passed=%d decode_us=%llu output_bytes=%lu rgb565=%04x,%04x,%04x,%04x",
         ok, (unsigned long long)(esp_timer_get_time()-began), (unsigned long)size,
         samples[0],samples[1],samples[2],samples[3]);
-    if(engine)jpeg_del_decoder_engine(engine);
-    free(output); return ok;
+    if(!ok) {
+        if(jpeg_decoder)jpeg_del_decoder_engine(jpeg_decoder);
+        jpeg_decoder=NULL;free(jpeg_pixels);jpeg_pixels=NULL;jpeg_pixels_size=0;
+    }
+    return ok;
 }
 static void jpeg_received(const moto_video_frame *frame)
 {
@@ -449,14 +450,11 @@ static bool prepare(const work *job)
     if (!ap_started || udp < 0 || job->stream.width != WIDTH || job->stream.height != HEIGHT) return false;
     if (receiver) { moto_video_destroy(receiver); receiver = NULL; }
     if (decoder) { esp_h264_dec_close(decoder); esp_h264_dec_del(decoder); decoder = NULL; }
-    if (jpeg_decoder) { jpeg_del_decoder_engine(jpeg_decoder); jpeg_decoder = NULL; }
-    free(jpeg_pixels); jpeg_pixels = NULL; jpeg_pixels_size = 0;
+    /* JPEG DMA resources are reserved once at boot. Stream teardown only clears
+     * ownership/pixels; reallocating descriptor chains amid Wi-Fi traffic can fail. */
     video_codec = job->stream.codec;
     if (video_codec == MOTO_VIDEO_MJPEG) {
-        jpeg_decode_engine_cfg_t engine = {.timeout_ms = 100};
-        jpeg_decode_memory_alloc_cfg_t memory = {.buffer_direction = JPEG_DEC_ALLOC_OUTPUT_BUFFER};
-        jpeg_pixels = jpeg_alloc_decoder_mem(WIDTH * 608 * 2, &memory, &jpeg_pixels_size);
-        if (!jpeg_pixels || jpeg_new_decoder_engine(&engine, &jpeg_decoder) != ESP_OK) return false;
+        if (!jpeg_pixels || !jpeg_decoder) return false;
     } else if (video_codec == MOTO_VIDEO_H264) {
         esp_h264_dec_cfg_sw_t config = {.pic_type = ESP_H264_RAW_FMT_I420};
         if (esp_h264_dec_sw_new(&config, &decoder) != ESP_H264_ERR_OK ||

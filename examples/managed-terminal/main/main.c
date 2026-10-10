@@ -26,7 +26,7 @@ void app_main(void) {
     board_fill_port(&c.port);
     c.hardware_revision = "YOUR-BOARD-REV";
     c.firmware_version = "1.0.0";
-    /* ABI 5: enable only after implementing BSP storage/receipts/decoders.
+    /* ABI 6: enable only after implementing BSP storage/receipts/decoders.
      * c.advertising = board_advertising_port();  // authenticated control stream
      * c.bulk = board_bulk_port();               // optional TCP byte transport
      * c.wifi_advertising = true;                // requires both ports above
