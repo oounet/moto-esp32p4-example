@@ -4,9 +4,7 @@
 #include "ancs_adapter.h"
 /* moto-sdk BLE/TLS reference adapter, with JC1060 P4/C6 board hooks. */
 #include <inttypes.h>
-#include <errno.h>
-#include <fcntl.h>
-#include "lwip/sockets.h"
+#include "moto/network_socket.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -62,8 +60,7 @@ typedef struct {
     moto_sdk *sdk;
     moto_tls *tls;
     uint16_t conn;
-    int socket;
-    bool wifi, socket_failed;
+    bool wifi;
     uint64_t wifi_request;
     uint64_t generation, connected_at, close_at, session_started;
     bool subscribed, disconnect_requested, candidate;
@@ -73,8 +70,8 @@ typedef struct {
 static ble_peer peers[2];
 static ble_peer *active; /* BLE notification/bootstrap owner only. */
 static ble_peer business, mirror;
-static int mirror_listener=-1;
-static int listener = -1, discovery_socket = -1;
+static moto_network *network;
+static moto_network_socket_config network_socket;
 static moto_pairing_auth shared_auth;
 static void poll_wifi(void);
 static moto_config base_config;
@@ -93,16 +90,8 @@ static int random_bytes(void *user, uint8_t *bytes, size_t size) { (void)user; e
 static int send_cipher(void *user, const uint8_t *bytes, size_t size) {
     ble_peer *peer = user;
     if (peer->wifi) {
-        int count = send(peer->socket, bytes, size, MSG_DONTWAIT);
-        if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            peer->socket_failed=true;
-            ESP_LOGW(TAG, "TCP_SEND peer=%s errno=%d internal=%u dma_largest=%u",
-                peer == &mirror ? "mirror" : "business", errno,
-                (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
-            return 0; /* owner tick handles loss after the SDK callback returns */
-        }
-        return count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) ? 0 : count;
+        moto_network_channel channel=peer==&mirror?MOTO_NETWORK_MIRROR:MOTO_NETWORK_PRIMARY;
+        return moto_network_send(network,moto_network_connection(network,channel),bytes,size);
     }
     if (peer->conn == BLE_HS_CONN_HANDLE_NONE) return -1;
     if (size > sizeof peer->tx_ring - peer->tx_count) size = sizeof peer->tx_ring - peer->tx_count;
@@ -196,6 +185,10 @@ static void on_event(void *user, const moto_event *event) {
         ESP_LOGW(TAG, "SDK_CLOSED peer=%s", peer == &mirror ? "mirror" : peer->wifi ? "business" : "bluetooth");
         peer->disconnect_requested = true;
         peer->close_at = clock_ms(NULL) + 150;
+        if(peer->wifi) {
+            moto_network_channel channel=peer==&mirror?MOTO_NETWORK_MIRROR:MOTO_NETWORK_PRIMARY;
+            moto_network_close(network,moto_network_connection(network,channel),150);
+        }
     }
     if (event->kind == MOTO_EVENT_READY) peer->session_started = clock_ms(NULL);
     if (peer==&mirror) return;
@@ -491,100 +484,12 @@ static bool create_peer(ble_peer *peer) {
     if (!peer->sdk) { moto_tls_destroy(peer->tls); peer->tls = NULL; return false; }
     return true;
 }
-static int open_listener(int type, uint16_t port) {
-    int fd = socket(AF_INET, type, 0);
-    if (fd < 0) return -1;
-    struct sockaddr_in address = {.sin_family=AF_INET, .sin_port=htons(port)};
-    address.sin_addr.s_addr = inet_addr("192.168.4.1");
-    int yes=1; setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof yes);
-    if (fcntl(fd,F_SETFL,O_NONBLOCK) < 0 || bind(fd,(struct sockaddr *)&address,sizeof address) ||
-        (type == SOCK_STREAM && listen(fd,1))) { close(fd); return -1; }
-    return fd;
+/* Radio/BSP snapshot only. Connection policy and socket operations live in SDK. */
+static moto_network_link network_link(void *user) {
+    (void)user;
+    return (moto_network_link){terminal_video_wifi_ready(),terminal_video_wifi_generation()};
 }
-static void poll_socket(ble_peer *peer) {
-    const char *name = peer == &mirror ? "mirror" : "business";
-    for (unsigned budget=0; budget<4 && !peer->disconnect_requested; ++budget) {
-        uint8_t bytes[2048];
-        int count=recv(peer->socket,bytes,sizeof bytes,MSG_DONTWAIT);
-        if (count>0) {
-            int result=moto_receive(peer->sdk,peer->generation,bytes,(size_t)count);
-            if (result<0) {
-                ESP_LOGW(TAG,"TCP_RECEIVE peer=%s sdk_result=%d",name,result);
-                peer->disconnect_requested=true;
-            }
-        } else {
-            if (!count || (errno!=EAGAIN && errno!=EWOULDBLOCK)) {
-                ESP_LOGW(TAG,"TCP_RECEIVE peer=%s count=%d errno=%d",name,count,count ? errno : 0);
-                peer->disconnect_requested=true;
-            }
-            break;
-        }
-    }
-    if (!peer->disconnect_requested) {
-        int result=moto_poll(peer->sdk);
-        if (result<0) {
-            ESP_LOGW(TAG,"TCP_POLL peer=%s sdk_result=%d",name,result);
-            peer->disconnect_requested=true;
-        }
-    }
-    if (peer->socket_failed) peer->disconnect_requested=true;
-    if (peer->disconnect_requested && clock_ms(NULL)>=peer->close_at) {
-        if (peer==&business && moto_detach_mirror(peer->sdk,peer->generation)==MOTO_OK)
-            ESP_LOGI(TAG,"MIRROR_PRIMARY_DETACHED extension retains its bounded lease");
-        else moto_disconnect(peer->sdk,peer->generation);
-        close(peer->socket);peer->socket=-1;
-    }
-}
-/* Only the capture extension uses this TLS lease endpoint. No UI/business events. */
-static void poll_mirror(void) {
-    if(mirror_listener<0)mirror_listener=open_listener(SOCK_STREAM,5005);
-    if(mirror_listener>=0) {
-        int fd=accept(mirror_listener,NULL,NULL);
-        if(fd>=0) {
-            if(mirror.socket>=0 || fcntl(fd,F_SETFL,O_NONBLOCK)<0)close(fd);
-            else {
-                mirror.socket=fd;mirror.generation=++next_generation;
-                mirror.disconnect_requested=mirror.socket_failed=false;mirror.close_at=0;
-                if(moto_connect_mirror(mirror.sdk,sdk,mirror.generation)!=MOTO_OK) {
-                    close(fd);mirror.socket=-1;
-                }
-            }
-        }
-    }
-    if(mirror.socket<0)return;
-    poll_socket(&mirror);
-}
-/* Runs on the same SDK owner event queue as BLE, never from socket callbacks. */
-static void poll_wifi(void) {
-    poll_mirror();
-    if (listener < 0) listener = open_listener(SOCK_STREAM,5004);
-    if (discovery_socket < 0) discovery_socket = open_listener(SOCK_DGRAM,5000);
-    if (discovery_socket >= 0) {
-        char query[32]; struct sockaddr_in from; socklen_t length=sizeof from;
-        int count=recvfrom(discovery_socket,query,sizeof query,MSG_DONTWAIT,(struct sockaddr *)&from,&length);
-        if(count==15 && !memcmp(query,"MOTO_DISCOVER_V1",15)) {
-            char answer[160];
-            int size=snprintf(answer,sizeof answer,"{\"protocol\":\"sdk-v1\",\"discoveryId\":\"%s\",\"port\":5004}",discovery_id);
-            sendto(discovery_socket,answer,size,MSG_DONTWAIT,(struct sockaddr *)&from,length);
-        }
-    }
-    if (listener >= 0) {
-        int fd=accept(listener,NULL,NULL);
-        if(fd>=0) {
-            if(business.socket>=0 || moto_mirror_detached(sdk) || fcntl(fd,F_SETFL,O_NONBLOCK)<0) close(fd);
-            else {
-                business.socket=fd; business.generation=++next_generation;
-                business.disconnect_requested=business.socket_failed=false; business.close_at=0;
-                moto_connect(sdk,business.generation);
-            }
-        }
-    }
-    if (business.socket < 0) {
-        if (moto_mirror_detached(sdk)) (void)moto_poll(sdk);
-        return;
-    }
-    poll_socket(&business);
-}
+static void poll_wifi(void) { (void)moto_network_poll(network,clock_ms(NULL)); }
 static void start_ble_host(void) {
     terminal_ancs_init();
     ESP_ERROR_CHECK(nimble_port_init());
@@ -660,9 +565,17 @@ void p4_terminal_start(void) {
     base_config = cfg;
     peers[0].conn = peers[1].conn = BLE_HS_CONN_HANDLE_NONE;
     active = &peers[0]; assert(create_peer(active));
-    business.wifi = true; business.socket = -1;
+    business.wifi = true;
     assert(create_peer(&business));
     sdk = business.sdk; tls = business.tls;
-    mirror.wifi=true;mirror.socket=-1;assert(create_peer(&mirror));
+    mirror.wifi=true;assert(create_peer(&mirror));
+    network_socket=(moto_network_socket_config){"192.168.4.1",NULL,network_link};
+    moto_network_config net;
+    moto_network_config_init(&net);
+    net.port=moto_network_socket_port(&network_socket);
+    net.discovery_id=discovery_id;
+    net.primary=sdk;net.mirror=mirror.sdk;net.mirror_port=5005;
+    network=moto_network_create(&net);
+    assert(network);
     atomic_store(&sdk_ready, true);
 }

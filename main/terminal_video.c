@@ -60,6 +60,9 @@ static atomic_bool playing, preview_mode;
 static atomic_bool picture_ready;
 static atomic_uint picture_time;
 static atomic_bool ap_radio_ready;
+bool terminal_video_wifi_ready(void) { return atomic_load(&ap_radio_ready); }
+static atomic_uint wifi_generation;
+unsigned terminal_video_wifi_generation(void) { return atomic_load(&wifi_generation); }
 static atomic_uint playing_epoch;
 static portMUX_TYPE peer_lock = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t peer_mac[6];
@@ -151,6 +154,7 @@ static void network_event(void *context, esp_event_base_t base, int32_t id, void
         ESP_LOGI(TAG, "AP radio started at 192.168.4.1");
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_AP_STOP) {
         atomic_store(&ap_radio_ready, false);
+        atomic_fetch_add(&wifi_generation, 1);
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_AP_STACONNECTED) {
         const wifi_event_ap_staconnected_t *joined = data;
         portENTER_CRITICAL(&peer_lock);
@@ -164,6 +168,7 @@ static void network_event(void *context, esp_event_base_t base, int32_t id, void
         portEXIT_CRITICAL(&peer_lock);
         ESP_LOGW(TAG, "AP station disconnected reason=%u", left->reason);
         atomic_store(&peer_ip, 0);
+        atomic_fetch_add(&wifi_generation, 1);
         /* Loss invalidates every buffered picture; restart through the secure control channel. */
         atomic_store(&playing, false);
         atomic_fetch_add(&epoch, 1);

@@ -1,3 +1,5 @@
+/* Advanced external transport only: do not call these when c.network is set.
+ * Managed network mode owns primary connection lifecycle and backpressure. */
 #include <moto_freertos/terminal.h>
 #include <string.h>
 /* One instance per physical link. Driver tasks serialize access to this state. */

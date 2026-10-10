@@ -1,8 +1,20 @@
 # 验证记录 / Validation
 
-当前接入使用 SDK 0.1.0、package revision 12、FreeRTOS ABI 6；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前接入使用 SDK 0.1.0、package revision 13、FreeRTOS ABI 7；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-Current integration requires SDK 0.1.0, package revision 12 and FreeRTOS ABI 6, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+Current integration requires SDK 0.1.0, package revision 13 and FreeRTOS ABI 7, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## 通用网络组件 / Portable networking — 2026-10-10
+
+revision 13 / ABI 7 的完整根工程和 managed-terminal 已使用同包头文件、静态库完成 ESP-IDF 5.5.4 构建；最终包与两工程所链接的接口/库逐字节一致。公开宿主 ASan/UBSan 与导入测试通过。SDK 内部另验证非 Socket 核心构建、网络背压/代次、托管真实 TLS 短写与同 IP 重连，不公开内部测试源码。参考 UI 没有刷入设备；本轮构建不证明首次入网时延或长时间镜像。
+
+Root and managed-terminal build with matching revision 13 / ABI 7 headers and archives. Final-package interfaces/libraries match the completed builds byte-for-byte. Public host sanitizer/import tests pass. Internal SDK checks also cover core-only builds without sockets, backpressure/generations, real TLS short writes and same-IP recovery. The public UI was not flashed; first-join timing and sustained mirroring still require target acceptance.
+
+## Wi-Fi 断连清理 / Wi-Fi disconnect cleanup — 2026-10-10
+
+根工程在单客户端 AP 离线或停止后，通过代次在 SDK 所有者队列关闭旧连接，再接受重新认证。根工程与 managed 示例编译链接通过，现有 ASan/UBSan 主机测试通过；这些测试不模拟无线事件时序。公开参考 UI 未刷入设备，目标板仍须检查断开图标、快速重连，以及普通主 TCP 断开时镜像扩展的续期。
+
+The root application uses an AP-loss generation to close stale connections on the SDK owner queue before accepting fresh authentication. Root and managed builds and existing sanitizer host tests pass; the host tests do not simulate radio event timing. The public reference UI was not flashed. Verify disconnected icons, rapid reconnects and delegated mirror renewal after ordinary primary TCP loss on the target board.
 
 ## SDK 校验优化 / SDK validation optimization — 2026-10-10
 

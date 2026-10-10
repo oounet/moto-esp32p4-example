@@ -2,6 +2,9 @@
 #include "moto/sdk.h"
 bool terminal_video_init(void);
 bool terminal_video_wifi_credentials(char ssid[33], char password[33]);
+/* Advances when the single-client AP loses its station or stops. Thread safe. */
+unsigned terminal_video_wifi_generation(void);
+bool terminal_video_wifi_ready(void);
 /* Local USB request: start/reuse the manual AP; credentials reply only over USB. */
 bool terminal_video_manual_ap(void);
 /* Save manual AP credentials in NVS and restore this AP automatically after reboot. */

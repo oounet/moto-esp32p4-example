@@ -12,7 +12,7 @@ The full application serializes public core/TLS APIs on the NimBLE host. UI and 
 
 `examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于从零移植到新板，不在 P4 主工程中再次启动；主工程展示 Wi-Fi 与 BLE 独立实例及通知连接接管。
 
-The separate managed example owns one terminal through the ABI 6 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
+The separate managed example owns one terminal through the ABI 7 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
 
 ## 生命周期 / Lifetime
 
@@ -44,10 +44,24 @@ The AP starts at boot. UDP 5000 provides discovery; TCP 5004 carries authenticat
 
 The full P4 app serves a separate TLS mirror lease on TCP 5005 using `mirror_auxiliary=true` and `moto_connect_mirror`. The capture extension may renew or stop only its granted stream. Closing the primary connection or replacing the stream revokes the grant. Both instances run on the same owner thread; auxiliary closure must not tear down the primary display or hotspot. One JPEG engine/output buffer is reserved at boot and reused exclusively by the video worker.
 
-TLS 动态缓冲使用 PSRAM（`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`），为 SDIO/JPEG 保留内部 DMA 内存。TCP 断开日志记录链路、错误码和发送失败时的内部空闲量，不记录凭据。
+TLS 动态缓冲使用 PSRAM（`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`），为 SDIO/JPEG 保留内部 DMA 内存。连接和认证日志不记录凭据。
 
-TLS dynamic buffers use PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`) to leave internal DMA memory for SDIO/JPEG. TCP diagnostics identify the channel, error code and internal memory on send failure without recording credentials.
+TLS dynamic buffers use PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`) to leave internal DMA memory for SDIO/JPEG. Connection/authentication diagnostics do not record credentials.
 
 主 TCP 意外丢失时，只有已委派的镜像可调用 `moto_detach_mirror` 保留；无主 socket 时仍在 owner 线程 poll 主实例。期间拒绝新主连接，辅助停止、20秒无续期或撤权后释放。显式用户断开仍使用 `moto_disconnect`。
 
 On unexpected primary TCP loss, only an already delegated mirror can use `moto_detach_mirror`. Continue polling the primary on its owner thread without a socket. Reject replacement primary connections until extension stop, twenty seconds without renewal, or revocation releases the session. Explicit user disconnection still uses `moto_disconnect`.
+
+单客户端 AP 收到手机离线或热点停止事件时，网络任务只递增原子代次，SDK 所有者队列在接受新连接前关闭旧业务/镜像 socket 并清除认证。即使快速重连复用同一 DHCP 地址也不能保留旧会话。无线链路实际断开时撤销镜像租期；仅主 TCP 意外重置而无线仍可用时保留上述扩展续期。通过平台网络状态、App 的 TCP ready、`TLS_READY` 和 `OWNER_AUTHENTICATED` 分别测量各阶段。
+
+When the single-client AP loses its station or stops, the network task only advances an atomic generation. The SDK owner closes old business/mirror sockets and authentication before accepting a replacement, even when a quick reconnect reuses the DHCP address. Actual radio loss revokes the mirror lease; an unexpected primary TCP reset with usable Wi-Fi still preserves delegated renewal as described above. Use platform link state, APP TCP-ready timing, TLS_READY and OWNER_AUTHENTICATED to distinguish the stages.
+
+TCP listener 使用4个待握手位置，避免 lwIP 的单槽 backlog 被手机入网期间取消的 SYN 握手占满。应用层仍只允许一个主业务客户端和一个镜像扩展。
+
+Each TCP listener allows four pending handshakes so an incomplete SYN from an attempt cancelled during network setup does not occupy the only backlog slot. Application admission remains limited to one business client and one mirror extension.
+
+## SDK 网络所有权 / SDK network ownership
+
+revision 13 / ABI 7：根工程用 `moto_network` 的核心绑定管理主业务、独立镜像和 UDP 发现；managed 工程用 `config.network` 管理主业务。板端只提供网络就绪/代次快照与接口地址，BSD/lwIP 原语来自闭源 SDK 包，不复制其实现。其他芯片/网络栈实现同一公开原语，静态库仍需匹配目标 ABI。地图和 bulk 仍是独立任务通道。
+
+Revision 13 / ABI 7 uses SDK-owned networking in both examples: core primary/mirror binding in the full app and config.network in the managed app. The BSP supplies readiness/generation and interface address; the binary SDK supplies optional BSD/lwIP primitives. Other chips/stacks implement the same public port with matching target binaries. Maps and bulk retain separate task channels.

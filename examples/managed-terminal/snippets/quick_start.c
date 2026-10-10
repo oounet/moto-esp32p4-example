@@ -6,6 +6,7 @@ moto_result example_start(moto_terminal **out) {
     moto_terminal_config c;
     moto_terminal_config_init(&c);
     board_fill_port(&c.port);
+    c.network = board_network_port();
     c.hardware_revision = "YOUR-BOARD-REV";
     c.firmware_version = "1.0.0";
     c.width = 1024; c.height = 600; /* Replace with actual LCD dimensions. */

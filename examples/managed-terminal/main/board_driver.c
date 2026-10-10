@@ -1,6 +1,7 @@
 /* Public customer glue template, NOT the private SDK implementation.
  * Replace these functions with the actual BSP. Unimplemented operations fail. */
 #include "board_driver.h"
+#include <moto/network_socket.h>
 #include <stdio.h>
 static moto_terminal *terminal;
 static int load_license(void *user, uint8_t bytes[512], char hardware[65], uint8_t key[65]) {
@@ -14,45 +15,35 @@ static int load_license(void *user, uint8_t bytes[512], char hardware[65], uint8
      * Return 0 only after all three outputs are filled. Never ship a private key. */
     return -1;
 }
-static int transport_send(void *user, uint64_t connection, const uint8_t *bytes, size_t size) {
+static moto_network_link network_link(void *user) {
     (void)user;
-    (void)connection;
-    (void)bytes;
-    (void)size;
-    /* Copy up to size bytes into your bounded TCP TX queue.
-     * Return copied count; 0 while TX queue busy; negative if disconnected. */
-    return -1;
+    /* Read a thread-safe BSP snapshot. ready means interface/IP usable, not
+     * Internet access. Increment generation on loss/replacement, even when a
+     * quick down/up reuses the same IP. In AP mode also report client loss. */
+    return (moto_network_link){false, 0};
 }
-static void transport_close(void *user, uint64_t connection) {
-    (void)user;
-    (void)connection;
-    /* Request an idempotent socket close for exactly this generation. */
+moto_network_port board_network_port(void) {
+    /* This sample address belongs to BSP configuration, not the SDK policy.
+     * Keep the configuration alive until SDK is destroyed. For a non-BSD stack,
+     * implement moto_network_port primitives instead of this optional backend. */
+    static moto_network_socket_config config={.bind_ipv4="192.168.4.1",.link=network_link};
+    return moto_network_socket_port(&config);
 }
 void board_fill_port(moto_terminal_port *port) {
-    *port = (moto_terminal_port){
-        .load_license = load_license, .transport_send = transport_send, .transport_close = transport_close};
+    *port = (moto_terminal_port){.load_license = load_license};
     /* ESP-IDF RNG, clock and atomic NVS owner storage are supplied by SDK. */
 }
 int board_start_connection(moto_terminal *value) {
     terminal = value;
-    /* Start persistent AP, UDP discovery (5000), and TCP listener (5004).
-     * Forward each accepted socket to SDK with its own generation and ordered bytes.
+    /* Start persistent AP and IP/DHCP. SDK owns discovery, TCP listeners,
+     * receive ordering, retry/backpressure and stale connection cleanup.
      * Return success only when the network is usable. BLE notifications use a
      * separate auxiliary core instance, as shown in the full P4 reference. */
     puts("board_start_connection: BSP not implemented");
     return -1;
 }
-void board_stop_connection(void) { /* Stop BLE AND TCP callbacks before destroying terminal. */
+void board_stop_connection(void) { /* Stop BSP callbacks and make network_link not ready. */
     terminal = NULL;
-}
-moto_result board_on_connection_connected(uint64_t *id) {
-    return moto_terminal_connected(terminal, id);
-}
-moto_result board_on_connection_rx(uint64_t id, const uint8_t *p, size_t n) {
-    return moto_terminal_receive(terminal, id, p, n);
-}
-void board_on_connection_disconnected(uint64_t id) {
-    (void)moto_terminal_disconnected(terminal, id);
 }
 void board_show_pin(uint32_t pin, uint32_t seconds) {
     (void)pin;
