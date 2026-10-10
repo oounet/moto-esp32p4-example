@@ -34,9 +34,9 @@ The SDK owner receives authenticated map transfers. Validated maps replace displ
 
 ## 无线通道 / Wireless channels
 
-AP 在启动时提供 DHCP，UDP 5000 用于发现、TCP 5004 承载主业务 TLS。BLE 配对引导与 Android 通知 / iOS ANCS 使用独立辅助 SDK/TLS 实例；两个实例在同一 owner 线程串行执行，共享持久化 owner 快照。蓝牙断开不终止主导航，业务断开不主动清理通知会话。UI 的 Wi-Fi / 蓝牙图标分别读取真实认证状态。
+AP 在启动时提供 DHCP，UDP 5000 用于发现、TCP 5004 承载主业务 TLS。BLE 配对引导与 Android 通知 / iOS ANCS 使用独立辅助 SDK/TLS 实例；两个实例在同一 owner 线程串行执行，共享持久化 owner 快照。蓝牙断开不终止主导航，业务断开不主动清理通知会话。UI 的 Wi-Fi / 蓝牙图标分别读取真实认证状态。两枚图标使用相同的 24 px 几何尺寸、2 px 线宽与状态色；未连接显示灰色斜线。公开参考仪表不内置无线图标，由 framebuffer 叠加层统一绘制一组；自定义仪表若自行绘制，仅在全屏视频/HUD 页面启用叠加层，首页小地图预览不重复叠加。
 
-The AP starts at boot. UDP 5000 provides discovery; TCP 5004 carries authenticated business traffic. Optional BLE bootstrap and Android notifications / iOS ANCS use a separate SDK/TLS instance. One owner thread serializes both instances and shared durable owner records. Each radio icon reflects its own authenticated connection. Video or bulk cleanup preserves the AP and primary listener.
+The AP starts at boot. UDP 5000 provides discovery; TCP 5004 carries authenticated business traffic. Optional BLE bootstrap and Android notifications / iOS ANCS use a separate SDK/TLS instance. One owner thread serializes both instances and shared durable owner records. Each radio icon reflects its own authenticated connection. Both use 24 px geometry, a 2 px stroke and the same state colors; disconnected radios are gray with a slash. The public reference instrument has no embedded radio glyphs, so the framebuffer draws one pair. If a custom instrument draws its own pair, enable the overlay only for fullscreen video/HUD, not for an inset home preview. Video or bulk cleanup preserves the AP and primary listener.
 
 ## iOS 镜像续期 / iOS mirror lease
 

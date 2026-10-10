@@ -1,5 +1,6 @@
 #include "terminal_board.h"
 #include "terminal_video.h"
+#include "ui/wireless_icons.h"
 #include "notice_view.h"
 #include "hud_view.h"
 #include "route_map_store.h"
@@ -360,17 +361,19 @@ static void link_line(uint16_t *pixels,unsigned width,unsigned height,int x,int 
         int twice=2*error;if(twice>=dy){error+=dy;x+=sx;}if(twice<=dx){error+=dx;y+=sy;}
     }
 }
+typedef struct { uint16_t *pixels; unsigned width, height; } wireless_frame;
+static void wireless_pixel_line(void *context,int x1,int y1,int x2,int y2,uint32_t color) {
+    wireless_frame *frame=context;
+    uint16_t ink=((color>>8)&0xf800)|((color>>5)&0x07e0)|((color>>3)&0x001f);
+    link_line(frame->pixels,frame->width,frame->height,x1,y1,x2,y2,ink);
+}
 static void draw_links(uint16_t *pixels,unsigned width,unsigned height) {
     if(width<120 || height<50)return;
-    uint16_t wifi=moto_terminal_wifi_connected()?0x06df:0x7bef;
-    uint16_t ble=moto_terminal_bluetooth_connected()?0x06df:0x7bef;
-    int x=(int)width-98,y=18;
-    link_line(pixels,width,height,x,y+6,x+8,y+2,wifi);link_line(pixels,width,height,x+8,y+2,x+16,y+2,wifi);link_line(pixels,width,height,x+16,y+2,x+24,y+6,wifi);
-    link_line(pixels,width,height,x+5,y+12,x+12,y+8,wifi);link_line(pixels,width,height,x+12,y+8,x+19,y+12,wifi);
-    link_line(pixels,width,height,x+11,y+17,x+13,y+17,wifi);
-    x+=43;link_line(pixels,width,height,x+7,y,x+7,y+22,ble);
-    link_line(pixels,width,height,x+7,y,x+15,y+6,ble);link_line(pixels,width,height,x+15,y+6,x,y+17,ble);
-    link_line(pixels,width,height,x,y+5,x+15,y+16,ble);link_line(pixels,width,height,x+15,y+16,x+7,y+22,ble);
+    wireless_frame frame={pixels,width,height};
+    /* Video backgrounds vary; the same opaque tray keeps both states legible. */
+    for(unsigned y=12;y<48;y++)for(unsigned x=width-104;x<width-24;x++)pixels[y*width+x]=0x10c4;
+    wireless_icon(&frame,wireless_pixel_line,(int)width-98,18,false,moto_terminal_wifi_connected(),true);
+    wireless_icon(&frame,wireless_pixel_line,(int)width-58,18,true,moto_terminal_bluetooth_connected(),true);
 }
 void terminal_board_overlay(uint16_t *pixels, unsigned width, unsigned height) {
     terminal_notice copy;
