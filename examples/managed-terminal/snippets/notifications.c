@@ -1,4 +1,9 @@
 #include <moto_freertos/terminal.h>
+/* Core BLE callback: out owns strings, so the UI can queue a value copy.
+ * The caller also saves its own connection/session and receipt time. */
+moto_result example_core_notice(const moto_event *event, moto_notification *out) {
+    return moto_event_get_notification(event, out);
+}
 /* UI task owns this slot; a real list uses bounded slots keyed by notification ID. */
 typedef struct { bool visible; moto_terminal_event saved; } example_notice;
 void example_notice_event(example_notice *ui, const moto_terminal_event *e) {

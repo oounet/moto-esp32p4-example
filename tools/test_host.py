@@ -12,6 +12,7 @@ for script in ['test_h264_memory.py', 'test_video_color.py']:
     subprocess.run(['python3', str(ROOT / 'tools' / script)], check=True)
 with tempfile.TemporaryDirectory(prefix='p4-host-') as folder:
     for name, sources in {
+        'terminal_control': ['tests/test_terminal_control.c'],
         'route_map_transport': ['tests/test_route_map_transport.c'],
         'ad_receipts': ['tests/test_ad_receipts.c', 'examples/managed-terminal/snippets/ad_receipts.c'],
         'instrument_frame': ['tests/test_instrument_frame.c'],

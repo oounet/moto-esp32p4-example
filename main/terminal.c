@@ -62,7 +62,7 @@ typedef struct {
     uint16_t conn;
     bool wifi;
     uint64_t wifi_request;
-    uint64_t generation, connected_at, close_at, session_started;
+    uint64_t generation, connected_at, close_at, session_started, rssi_at;
     bool subscribed, disconnect_requested, candidate;
     uint8_t tx_ring[8192];
     size_t tx_head, tx_count;
@@ -106,23 +106,36 @@ static int persist_pairing(void *user, bool paired) {
     if (err == ESP_OK) commissioned = paired;
     return err == ESP_OK ? 0 : -1;
 }
-/* Vehicle state remains a fixture; local audio/LED execute on a separate task. */
+/* Vehicle controls are DEMO state only; LVGL confirms the visible demo action. */
 static moto_vehicle_state simulated_state;
-static uint64_t state_revision, next_sample, fault_event_id, next_fault, session_started_ms;
+static uint64_t state_revision, next_sample, fault_event_id, next_fault;
 static control_effect rejected_commands[16];
 static unsigned rejected_count;
+static void submit_control(ble_peer *peer, const moto_event *event) {
+    moto_slice field; uint64_t expiry = 0;
+    if (moto_cbor_find(event->body, 2, &field)) moto_cbor_get_uint(field, &expiry);
+    control_effect effect = {.session=event->session_id, .request=event->request_id,
+        .message=event->message, .value=event->value, .deadline_ms=peer->session_started+expiry,
+        .generation=peer->generation, .source=peer==&business ? 0 : peer==&peers[0] ? 1 : 2};
+    if (!control_effects_submit(effect) && rejected_count < 16)
+        rejected_commands[rejected_count++] = effect;
+}
 static void complete_effect(const control_effect *effect) {
-    if (effect->success) {
-        unsigned field = MOTO_LOCK + effect->message - MOTO_LOCK_SET;
-        if (field != MOTO_HORN && !(field == MOTO_LIGHT && effect->value == 2))
-            simulated_state.values[field] = effect->value;
+    if (effect->source > 2) return;
+    ble_peer *peer = effect->source == 0 ? &business : &peers[effect->source-1];
+    if (!peer->sdk || effect->generation != peer->generation ||
+        effect->session != moto_session_id(peer->sdk) || !moto_authenticated(peer->sdk)) return;
+    moto_result result = moto_complete_command(peer->sdk, effect->session, effect->request,
+        effect->success ? MOTO_SUCCEEDED : MOTO_FAILED, effect->success ? 0 : (uint32_t)-MOTO_IO);
+    if (result == MOTO_OK && effect->success) {
+        terminal_control_apply(&simulated_state, effect);
+        if (effect->message == MOTO_POWER_SET) terminal_display_set_power(effect->value != 0);
+        if (effect->message == MOTO_LOCK_SET && effect->value == 1)
+            for (unsigned i=0; i<2; ++i) if (peers[i].sdk) moto_proximity_reset(peers[i].sdk);
         next_sample = 0;
     }
-    if (effect->session != moto_session_id(sdk) || !moto_authenticated(sdk)) return;
-    moto_result result = moto_complete_command(sdk, effect->session, effect->request,
-        effect->success ? MOTO_SUCCEEDED : MOTO_FAILED, effect->success ? 0 : (uint32_t)-MOTO_IO);
-    ESP_LOGI(TAG, "CONTROL_RESULT type=%" PRIu32 " value=%" PRIu32 " success=%d result=%d",
-             effect->message, effect->value, effect->success, result);
+    ESP_LOGI(TAG, "DEMO_CONTROL_RESULT source=%" PRIu32 " type=%" PRIu32 " value=%" PRIu32 " success=%d result=%d",
+             effect->source, effect->message, effect->value, effect->success, result);
 }
 static void simulate_vehicle(void) {
     uint64_t now = clock_ms(NULL);
@@ -140,7 +153,7 @@ static void simulate_vehicle(void) {
         simulated_state.values[MOTO_MILEAGE] = 1286000 + demo.trip_tenths * 100;
         simulated_state.values[MOTO_FAULT] = (now / 60000) % 2; /* active simulated fault count */
         uint32_t enabled=moto_enabled_capabilities(sdk);
-        simulated_state.present = enabled & (MOTO_CAP(MOTO_LOCK)|MOTO_CAP(MOTO_VOLUME)|MOTO_CAP(MOTO_LIGHT)|MOTO_CAP(MOTO_BATTERY)|MOTO_CAP(MOTO_CHARGING)|MOTO_CAP(MOTO_MILEAGE)|MOTO_CAP(MOTO_FAULT));
+        simulated_state.present = enabled & (MOTO_CAP(MOTO_LOCK)|MOTO_CAP(MOTO_VOLUME)|MOTO_CAP(MOTO_LIGHT)|MOTO_CAP(MOTO_BATTERY)|MOTO_CAP(MOTO_CHARGING)|MOTO_CAP(MOTO_MILEAGE)|MOTO_CAP(MOTO_FAULT)|MOTO_CAP(MOTO_POWER));
         if(enabled & MOTO_CAP(MOTO_BATTERY))simulated_state.present|=MOTO_CAP(MOTO_RANGE_METRES);
         moto_result result = moto_report_vehicle_state(sdk, ++state_revision, &simulated_state);
         ESP_LOGI(TAG, "SIM_STATE revision=%" PRIu64 " soc=%" PRIu64 " range_m=%" PRIu64 " result=%d",
@@ -179,6 +192,32 @@ static int cloud_hmac(void *user, const uint8_t *data, size_t size, uint8_t out[
     if (!cloud_configured || size > 1057) return -1;
     return mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), cloud_proof_key, 32, data, size, out);
 }
+/* One durable profile, keyed by owner and this App installation; no raw token
+ * is duplicated in the proximity record. Missing/different scope starts unset. */
+static int proximity_scope(const uint8_t owner[32], const char *client, uint8_t out[32]) {
+    uint8_t input[68]; memcpy(input,owner,32); memcpy(input+32,client,36);
+    int rc=mbedtls_md(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),input,sizeof input,out);
+    memset(input,0,sizeof input); return rc;
+}
+static int proximity_load(void *user, const uint8_t owner[32], const char *client, moto_proximity_profile *profile) {
+    (void)user; uint8_t record[37],scope[32]; size_t size=sizeof record;
+    memset(profile,0,sizeof *profile);
+    esp_err_t rc=nvs_get_blob(storage,"proximity",record,&size);
+    if (rc==ESP_ERR_NVS_NOT_FOUND) return MOTO_OK;
+    if (rc!=ESP_OK || size!=sizeof record || record[0]!=1 || record[33]>1 || record[34]>1 || proximity_scope(owner,client,scope)) return MOTO_IO;
+    if (memcmp(record+1,scope,32)) return MOTO_OK;
+    *profile=(moto_proximity_profile){record[33]!=0,record[34]!=0,-(int16_t)record[35],-(int16_t)record[36]};
+    return MOTO_OK;
+}
+static int proximity_save(void *user, const uint8_t owner[32], const char *client, const moto_proximity_profile *profile) {
+    (void)user; uint8_t record[37]={1};
+    if (proximity_scope(owner,client,record+1)) return MOTO_IO;
+    record[33]=profile->calibrated; record[34]=profile->enabled;
+    record[35]=(uint8_t)-profile->far_rssi; record[36]=(uint8_t)-profile->near_rssi;
+    esp_err_t rc=nvs_set_blob(storage,"proximity",record,sizeof record);
+    if (rc==ESP_OK) rc=nvs_commit(storage);
+    return rc==ESP_OK ? MOTO_OK : MOTO_IO;
+}
 static void on_event(void *user, const moto_event *event) {
     ble_peer *peer = user;
     if (event->kind == MOTO_EVENT_CLOSED) {
@@ -192,8 +231,11 @@ static void on_event(void *user, const moto_event *event) {
     }
     if (event->kind == MOTO_EVENT_READY) peer->session_started = clock_ms(NULL);
     if (peer==&mirror) return;
+    if (event->kind == MOTO_EVENT_CLOSED) control_effects_cancel(peer==&business ? 0 : peer==&peers[0] ? 1 : 2);
     if (!peer->wifi) {
-        /* Bluetooth owns only pairing UI and notifications, never media cleanup. */
+        /* BLE owns pairing, notifications and proximity; media stays on Wi-Fi. */
+        if (event->kind == MOTO_EVENT_VEHICLE_COMMAND && event->message == MOTO_PROXIMITY_UNLOCK_TRIGGER)
+            submit_control(peer, event);
         if (event->kind == MOTO_EVENT_ANCS_SHARING && peer == active) terminal_ancs_request(event->value == 1);
         if (event->kind == MOTO_EVENT_WIFI) peer->wifi_request = event->request_id;
         if (event->kind == MOTO_EVENT_CLOSED && peer == active) terminal_ancs_disconnect();
@@ -211,12 +253,7 @@ static void on_event(void *user, const moto_event *event) {
         ESP_LOGI(TAG, "OWNER_AUTHENTICATED"); break;
     case MOTO_EVENT_VEHICLE_COMMAND: {
         /* No SDK reentry: worker executes, host tick delivers the final result. */
-        moto_slice field; uint64_t expiry=0;
-        if(moto_cbor_find(event->body,2,&field)) moto_cbor_get_uint(field,&expiry);
-        control_effect effect={.session=event->session_id,.request=event->request_id,
-            .message=event->message,.value=event->value,.deadline_ms=session_started_ms+expiry};
-        if(!control_effects_submit(effect) && rejected_count<16)
-            rejected_commands[rejected_count++]=effect;
+        submit_control(peer, event);
         break;
     }
     case MOTO_EVENT_PHONE_STATE:
@@ -226,16 +263,12 @@ static void on_event(void *user, const moto_event *event) {
     case MOTO_EVENT_ANCS_SHARING:
         terminal_ancs_request(event->value == 1); break;
     case MOTO_EVENT_READY:
-        session_started_ms = clock_ms(NULL);
         ESP_LOGI(TAG, "TLS_READY cipher=%s", moto_tls_ciphersuite(tls)); break;
     case MOTO_EVENT_PAIR:
         ESP_LOGI(TAG, "PAIR_COMMITTED device=%s hud=semantic", device_id); break;
     case MOTO_EVENT_UNPAIR:
         terminal_ancs_disconnect();
         ESP_LOGI(TAG, "UNPAIRED owner revoked; immutable License retained"); break;
-    case MOTO_EVENT_CLOSED:
-        control_effects_cancel();
-        break;
     case MOTO_EVENT_NAV_BEGIN: {
         moto_slice field; uint64_t source = 0;
         if (moto_cbor_find(event->body, 1, &field)) moto_cbor_get_uint(field, &source);
@@ -336,6 +369,12 @@ static void on_tick(struct ble_npl_event *event) {
             flush_cipher(peer);
             if (!peer->disconnect_requested) moto_poll(peer->sdk);
             promote_peer(peer);
+            if (!peer->disconnect_requested && moto_authenticated(peer->sdk) && clock_ms(NULL)>=peer->rssi_at) {
+                peer->rssi_at=clock_ms(NULL)+500;
+                int8_t rssi=127;
+                if (ble_gap_conn_rssi(peer->conn,&rssi)) rssi=127;
+                moto_proximity_sample(peer->sdk,peer->generation,rssi);
+            }
             flush_cipher(peer);
         } else if (clock_ms(NULL) - peer->connected_at >= 20000) peer->disconnect_requested = true;
         if (peer->disconnect_requested && clock_ms(NULL) >= peer->close_at)
@@ -476,6 +515,7 @@ static bool create_peer(ble_peer *peer) {
     moto_config cfg = base_config;
     cfg.user = peer; cfg.secure = moto_tls_transport(peer->tls);
     cfg.bluetooth_auxiliary = !peer->wifi;
+    if (!peer->wifi) cfg.proximity = (moto_proximity_port){peer,proximity_load,proximity_save};
     cfg.mirror_auxiliary = peer==&mirror;
     cfg.mirror_control = peer==&business;
     cfg.read_pairing_auth = read_auth;
@@ -560,6 +600,7 @@ void p4_terminal_start(void) {
     /* The backend supplies all model capabilities and operation limits after owner authentication. */
     terminal_configure_board(&cfg, video_ready);
     simulated_state.values[MOTO_VOLUME] = 50;
+    simulated_state.values[MOTO_POWER] = 1;
     cfg.ancs = true; cfg.ancs_ready = terminal_ancs_ready;
     cfg.notifications = true; cfg.calls = false; cfg.wifi_ota = false;
     base_config = cfg;

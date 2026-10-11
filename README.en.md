@@ -4,7 +4,7 @@
 
 A board application for JC1060P470C_I_W_Y, JD9165 1024×600, ESP32-P4 + ESP32-C6. Wi-Fi pairing, navigation/mirroring reception, HUD, notifications and instrument switching have board adapters. Vehicle telemetry remains visibly DEMO data.
 
-**The application and adapters are open source; Moto SDK implementation remains in proprietary static libraries.** Obtain the SDK 0.1.0 / FreeRTOS ABI 7 / ESP-IDF 5.5.4 binary package and your device's license from the integration team. No SDK implementation, SDK distribution, device license or private key is published here.
+**The application and adapters are open source; Moto SDK implementation remains in proprietary static libraries.** Obtain the SDK 0.1.0 / FreeRTOS ABI 8 / ESP-IDF 5.5.4 binary package and your device's license from the integration team. No SDK implementation, SDK distribution, device license or private key is published here.
 
 ## Build the full board application
 
@@ -13,7 +13,7 @@ Install ESP-IDF 5.5.4 with its toolchain, Python 3.10+ and Git. Substitute your 
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261010-abi7.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -34,7 +34,7 @@ After checking your board, wiring, partition layout and backup, use your serial 
 ## Learn and port each feature
 
 - `main/` is the complete board application. It uses the SDK's **public low-level C APIs**, including independent Wi-Fi business and BLE notification sessions plus video tasks. It is not SDK implementation source.
-- `examples/managed-terminal/` is a separate, simpler ABI 7 FreeRTOS project with SDK-owned tasks/events, compilable feature examples and replaceable BSP. Do not start both architectures in one firmware.
+- `examples/managed-terminal/` is a separate, simpler ABI 8 FreeRTOS project with SDK-owned tasks/events, compilable feature examples and replaceable BSP. Do not start both architectures in one firmware.
 - [Feature matrix](docs/FEATURES.en.md) identifies implemented paths, examples, missing hardware and acceptance steps. Advertising, OTA and call examples do not imply the board has a media player, OTA partition layout or HFP hardware.
 
 ```sh
@@ -57,6 +57,6 @@ Application code is MIT; third-party files retain their licenses in [THIRD_PARTY
 
 ## Offline maps
 
-The root project includes compressed map reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 13 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
+The root project includes compressed map reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 14 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
 
-Revision 13 / ABI 7 moves listeners, connection generations, backpressure and stale-session cleanup into the SDK, retaining earlier CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
+Revision 14 / ABI 8 moves listeners, connection generations, backpressure and stale-session cleanup into the SDK, retaining earlier CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).

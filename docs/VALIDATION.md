@@ -1,8 +1,20 @@
 # 验证记录 / Validation
 
-当前接入使用 SDK 0.1.0、package revision 13、FreeRTOS ABI 7；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前接入使用 SDK 0.1.0、package revision 14、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-Current integration requires SDK 0.1.0, package revision 13 and FreeRTOS ABI 7, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+Current integration requires SDK 0.1.0, package revision 14 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## ABI 8、感应锁与电源 / ABI 8, proximity and power — 2026-10-11
+
+根工程和 managed-terminal 使用 revision 14 / ABI 8 二进制包完成 ESP-IDF 5.5.4 构建。最终包的公开头文件和两个静态库与已构建版本逐字节一致；导入校验、4 项导入安全测试和宿主 ASan/UBSan 通过，新增控制字段映射检查。根工程同步了 BLE 校准/RSSI、来源隔离控制回执、DEMO 背光电源和公开通知快照接口。
+
+The root and managed-terminal projects build with revision 14 / ABI 8 on ESP-IDF 5.5.4. Final-package headers and both archives match the completed builds byte-for-byte. Import verification, four importer safety tests and host ASan/UBSan checks pass, including explicit control-field mapping. The root integrates BLE calibration/RSSI, origin-bound completions, DEMO backlight power and owned notification snapshots.
+
+SDK 包 SHA-256 / package SHA-256: `c720437aac9a117e0b757617783662a2fdab3cbf68297d5ac7f0990835c1bc4c`。
+
+本次公开 UI 未刷入设备；内部固件的安装记录不能代替此参考 UI 的实机验收。真实锁/电源执行器、感应距离、后台重连和 NVS 掉电恢复需独立验证。
+
+The public UI was not flashed in this update; installation of internal firmware does not validate this reference UI. Real lock/power actuators, ranging, background recovery and NVS power-loss behavior require separate acceptance.
 
 ## 通用网络组件 / Portable networking — 2026-10-10
 

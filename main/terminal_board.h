@@ -1,6 +1,6 @@
 #pragma once
 #include "moto/sdk.h"
-#include "control_effects.h"
+#include "terminal_control.h"
 #include "ui/electric_ui.h"
 void p4_terminal_start(void);
 bool moto_terminal_ble_ready(void);
@@ -28,3 +28,5 @@ void terminal_board_instrument_presented(void);
 void terminal_display_hold(unsigned seconds);
 /* 1: hold; 2: render without presentation; 3: swap identical frames. */
 void terminal_display_test(unsigned mode);
+/* Board-only demo: backlight changes, communication stays alive. */
+void terminal_display_set_power(bool powered);

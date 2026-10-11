@@ -32,6 +32,7 @@ static uint64_t scaling_us, scan_wait_us, handler_us, drawing_us;
 static uint64_t render_scaling_us;
 static int64_t render_start;
 static bool backlight_on;
+static atomic_bool display_power_requested = true;
 static uint32_t edge_hash, edge_changes, edge_samples;
 static atomic_uint display_test_request, display_refreshes;
 static atomic_uint display_max_gap_us;
@@ -42,6 +43,20 @@ void terminal_display_hold(unsigned seconds)
     if (seconds) atomic_store(&display_test_request, 1);
 }
 void terminal_display_test(unsigned mode) { if (mode >= 1 && mode <= 3) atomic_store(&display_test_request, mode); }
+
+void terminal_display_set_power(bool powered) { atomic_store(&display_power_requested, powered); }
+
+/* The display owner alone touches LEDC. Fake power leaves scanout, networking
+ * and state reporting alive, and never lights an uninitialized framebuffer. */
+static void sync_backlight(void)
+{
+    bool powered = atomic_load(&display_power_requested) && frames > 0;
+    if (powered == backlight_on) return;
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, powered ? 818 : 0));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+    backlight_on = powered;
+    ESP_LOGI(TAG, "DEMO_DISPLAY_POWER powered=%d; Wi-Fi/BLE remain available", powered);
+}
 
 /* The outer four pixels contain static artwork. Track changes in submitted
  * instrument frames to distinguish software edge flicker from LCD scanout.
@@ -111,6 +126,7 @@ static void present_frame(void)
     back_frame ^= 1;
     scaled_frame = panel_frames[back_frame];
     ++frames;
+    sync_backlight();
 }
 
 static bool instrument_base_ready;
@@ -148,12 +164,6 @@ static void flush_frame(lv_display_t *display, const lv_area_t *area, uint8_t *p
     terminal_board_instrument_presented();
     if(live_map && map_stream) terminal_video_presented(map_stream,map_frame,map_generation);
     scan_wait_us += esp_timer_get_time() - start;
-    if (!backlight_on) {
-        ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 818));
-        ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
-        backlight_on = true;
-        ESP_LOGI(TAG, "First instrument frame delivered to LCD; backlight 80%%");
-    }
     lv_display_flush_ready(display);
 }
 
@@ -229,6 +239,7 @@ static void instrument_task(void *context)
     uint32_t hold_until = 0, hold_refreshes = 0;
     for (;;) {
         terminal_board_tick();
+        sync_backlight();
         unsigned request = atomic_exchange(&display_test_request, 0);
         if (request && !terminal_video_active() && backlight_on) {
             display_test_mode = request;

@@ -13,3 +13,7 @@ Import the binary SDK following the [root README](../../README.en.md), then run 
 广告先用 Wi-Fi 主通道小 PNG：`advertising.h` 提供哈希与播放接口，`ad_receipts.h` 提供真实 NVS 去重。单一 SDK 任务调用；存储上下文活到终端销毁后。再接 `bulk.c` 启用独立 bulk 传输。OTA 的 `ota.h` 是显式模拟传输，不安装固件。HFP、PNG 显示、TCP、解码器等接口仍需实际驱动。
 
 Start ads with a small PNG over the Wi-Fi business session. `advertising.h` provides hash/player hooks; `ad_receipts.h` implements durable NVS deduplication. One SDK task owns calls; keep context through destruction. Then wire `bulk.c` for independent bulk transfers. `ota.h` explicitly simulates transport without installing firmware. HFP, PNG display, TCP and decoding require actual drivers.
+
+`notifications.c` 的核心快照示例使用 `moto_event`；托管 UI 示例使用 `moto_terminal_event`，两者不可混用。当前 App 的 Android 通知与感应解锁需要根工程中的独立 BLE 辅助实例，单独开启 Wi-Fi 实例的 notifications 不会建立它。
+
+The core snapshot example in `notifications.c` uses `moto_event`; managed UI examples use `moto_terminal_event`. Do not mix them. Current APP notifications and proximity need the full application's separate BLE companion; enabling notifications on a Wi-Fi instance does not create that companion.

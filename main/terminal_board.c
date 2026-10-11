@@ -31,7 +31,7 @@ static bool navigation_active;
 static uint64_t hud_generation;
 static SemaphoreHandle_t mutex;
 static QueueHandle_t commands, results;
-static atomic_uint control_epoch;
+static atomic_uint control_epoch[3];
 static atomic_bool media_active;
 static atomic_int applied_instrument = ELECTRIC_STYLE_COCKPIT;
 static SemaphoreHandle_t instrument_mutex;
@@ -174,21 +174,20 @@ void hud_display_event(const moto_event *event)
     case MOTO_EVENT_HUD_EXPIRED: state.hud_valid = false; ++hud_generation; break;
     case MOTO_EVENT_NAV_END: atomic_store(&media_active, false); navigation_active=false; ++hud_generation; state.hud_valid = false; break;
     case MOTO_EVENT_NOTIFICATION: {
-        moto_slice field; uint64_t ttl = 0;
+        moto_notification notice;
+        if (moto_event_get_notification(event, &notice) != MOTO_OK) break;
         memset(&state.notice, 0, sizeof state.notice);
-        if (moto_cbor_find(event->body, 0, &field)) moto_cbor_get_uint(field, &state.notice.id);
-        if (moto_cbor_find(event->body, 1, &field)) moto_cbor_get_uint(field, &ttl);
-        char *out[] = {state.notice.app, state.notice.title, state.notice.text};
-        const size_t sizes[] = {sizeof state.notice.app, sizeof state.notice.title, sizeof state.notice.text};
-        for (unsigned i=0; i<3; ++i)
-            if (moto_cbor_find(event->body, i+3, &field))
-                moto_cbor_get_text(field, out[i], sizes[i]);
-        state.notice.until = now + (ttl < 4000 ? ttl : 4000); break;
+        state.notice.id = notice.id;
+        snprintf(state.notice.app, sizeof state.notice.app, "%s", notice.app);
+        memcpy(state.notice.title, notice.title, sizeof notice.title);
+        memcpy(state.notice.text, notice.text, sizeof notice.text);
+        state.notice.until = now + (notice.ttl_ms < 4000 ? notice.ttl_ms : 4000);
+        break;
     }
     case MOTO_EVENT_NOTIFICATION_REMOVE: {
-        moto_slice field; uint64_t id = 0;
-        if (moto_cbor_find(event->body, 0, &field) && moto_cbor_get_uint(field, &id) &&
-            !state.notice.ancs && state.notice.id == id)
+        moto_notification notice;
+        if (moto_event_get_notification(event, &notice) == MOTO_OK &&
+            !state.notice.ancs && state.notice.id == notice.id)
             memset(&state.notice, 0, sizeof state.notice);
         break;
     }
@@ -283,11 +282,10 @@ void terminal_board_tick(void)
     lv_obj_set_flag(hud_label, LV_OBJ_FLAG_HIDDEN, !text[0]);
     control_effect command;
     while (uxQueueSpacesAvailable(results) && xQueueReceive(commands, &command, 0) == pdTRUE) {
-        if (command.epoch != atomic_load(&control_epoch)) continue;
+        if (command.epoch != atomic_load(&control_epoch[command.source])) continue;
         command.success = now < (int64_t)command.deadline_ms;
         if (command.success) {
-            static const char *names[] = {"Lock", "Volume", "Light", "Horn"};
-            snprintf(text, sizeof text, "DEMO %s: %lu", names[command.message - MOTO_LOCK_SET], (unsigned long)command.value);
+            snprintf(text, sizeof text, "DEMO %s: %lu", terminal_control_name(command.message), (unsigned long)command.value);
             lv_label_set_text(control_label, text);
         }
         xQueueSend(results, &command, 0);
@@ -298,17 +296,17 @@ bool control_effects_audio_ready(void) { return false; }
 bool control_effects_light_ready(void) { return false; }
 bool control_effects_submit(control_effect effect)
 {
-    if (effect.message < MOTO_LOCK_SET || effect.message > MOTO_HORN_TRIGGER) return false;
-    effect.epoch = atomic_load(&control_epoch);
+    if (effect.source > 2 || !terminal_control_name(effect.message)) return false;
+    effect.epoch = atomic_load(&control_epoch[effect.source]);
     return xQueueSend(commands, &effect, 0) == pdTRUE;
 }
 bool control_effects_result(control_effect *effect)
 {
     while (xQueueReceive(results, effect, 0) == pdTRUE)
-        if (effect->epoch == atomic_load(&control_epoch)) return true;
+        if (effect->source < 3 && effect->epoch == atomic_load(&control_epoch[effect->source])) return true;
     return false;
 }
-void control_effects_cancel(void) { atomic_fetch_add(&control_epoch, 1); }
+void control_effects_cancel(uint32_t source) { if (source < 3) atomic_fetch_add(&control_epoch[source], 1); }
 
 void hud_display_ancs(const moto_ancs_notification *notice) {
     xSemaphoreTake(mutex, portMAX_DELAY);

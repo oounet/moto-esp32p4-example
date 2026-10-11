@@ -12,7 +12,7 @@ The full application serializes public core/TLS APIs on the NimBLE host. UI and 
 
 `examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于从零移植到新板，不在 P4 主工程中再次启动；主工程展示 Wi-Fi 与 BLE 独立实例及通知连接接管。
 
-The separate managed example owns one terminal through the ABI 7 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
+The separate managed example owns one terminal through the ABI 8 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
 
 ## 生命周期 / Lifetime
 
@@ -62,6 +62,16 @@ Each TCP listener allows four pending handshakes so an incomplete SYN from an at
 
 ## SDK 网络所有权 / SDK network ownership
 
-revision 13 / ABI 7：根工程用 `moto_network` 的核心绑定管理主业务、独立镜像和 UDP 发现；managed 工程用 `config.network` 管理主业务。板端只提供网络就绪/代次快照与接口地址，BSD/lwIP 原语来自闭源 SDK 包，不复制其实现。其他芯片/网络栈实现同一公开原语，静态库仍需匹配目标 ABI。地图和 bulk 仍是独立任务通道。
+revision 14 / ABI 8：根工程用 `moto_network` 的核心绑定管理主业务、独立镜像和 UDP 发现；managed 工程用 `config.network` 管理主业务。板端只提供网络就绪/代次快照与接口地址，BSD/lwIP 原语来自闭源 SDK 包，不复制其实现。其他芯片/网络栈实现同一公开原语，静态库仍需匹配目标 ABI。地图和 bulk 仍是独立任务通道。
 
-Revision 13 / ABI 7 uses SDK-owned networking in both examples: core primary/mirror binding in the full app and config.network in the managed app. The BSP supplies readiness/generation and interface address; the binary SDK supplies optional BSD/lwIP primitives. Other chips/stacks implement the same public port with matching target binaries. Maps and bulk retain separate task channels.
+Revision 14 / ABI 8 uses SDK-owned networking in both examples: core primary/mirror binding in the full app and config.network in the managed app. The BSP supplies readiness/generation and interface address; the binary SDK supplies optional BSD/lwIP primitives. Other chips/stacks implement the same public port with matching target binaries. Maps and bulk retain separate task channels.
+
+## 感应解锁、电源与通知快照 / Proximity, power and notification snapshots
+
+BLE 辅助实例配置 proximity.load/save，在相同 SDK 所有者任务每 500 ms 读取对应连接 RSSI。校准按 owner 与安装标识的哈希持久化。控制队列保留来源槽、连接代次、会话与截止时间；完成回到原实例，断连只取消该来源。Wi-Fi 命令 55 与 BLE 本地事件 56 使用显式字段映射。DEMO 电源只改变背光，通信保持；真实车辆需替换执行器和状态采集。
+
+The BLE companion supplies proximity persistence and samples its own RSSI every 500 ms on the SDK owner task. Calibration is scoped by an owner/installation hash. Queued controls retain origin, connection generation, session and deadline; completion returns to that instance and disconnect cancels only that origin. Message 55 and local event 56 use explicit field mapping. DEMO power changes backlight while communication stays alive; real products require actuators and observed telemetry.
+
+Android 通知在回调中用 `moto_event_get_notification` 复制成 `moto_notification`，UI 不再自行解析 CBOR；显示上限为 4 秒，断连/撤回仍清理。ANCS 使用独立解析器。具体边界见[接线说明](PROXIMITY_AND_POWER.md)。
+
+Android callbacks copy `moto_notification` through `moto_event_get_notification` before borrowed data expires. The UI no longer parses CBOR; the four-second display limit and disconnect/removal cleanup remain. ANCS uses its own parser. See [wiring](PROXIMITY_AND_POWER.en.md).
