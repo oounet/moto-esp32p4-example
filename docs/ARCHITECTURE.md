@@ -66,12 +66,20 @@ revision 14 / ABI 8：根工程用 `moto_network` 的核心绑定管理主业务
 
 Revision 14 / ABI 8 uses SDK-owned networking in both examples: core primary/mirror binding in the full app and config.network in the managed app. The BSP supplies readiness/generation and interface address; the binary SDK supplies optional BSD/lwIP primitives. Other chips/stacks implement the same public port with matching target binaries. Maps and bulk retain separate task channels.
 
-## 感应解锁、电源与通知快照 / Proximity, power and notification snapshots
+## 感应解锁 / Proximity unlock
 
-BLE 辅助实例配置 proximity.load/save，在相同 SDK 所有者任务每 500 ms 读取对应连接 RSSI。校准按 owner 与安装标识的哈希持久化。控制队列保留来源槽、连接代次、会话与截止时间；完成回到原实例，断连只取消该来源。Wi-Fi 命令 55 与 BLE 本地事件 56 使用显式字段映射。DEMO 电源只改变背光，通信保持；真实车辆需替换执行器和状态采集。
+BLE 辅助实例配置 proximity.load/save，在相同 SDK 所有者任务每 500 ms 读取对应连接 RSSI。校准按 owner 与安装标识的哈希持久化。控制队列保留来源槽、连接代次、会话与截止时间；完成回到原实例，断连只取消该来源。BLE 本地事件 56 显式映射到锁执行器，参考锁状态为 DEMO。详见 [感应解锁](PROXIMITY_UNLOCK.md)。
 
-The BLE companion supplies proximity persistence and samples its own RSSI every 500 ms on the SDK owner task. Calibration is scoped by an owner/installation hash. Queued controls retain origin, connection generation, session and deadline; completion returns to that instance and disconnect cancels only that origin. Message 55 and local event 56 use explicit field mapping. DEMO power changes backlight while communication stays alive; real products require actuators and observed telemetry.
+The BLE companion supplies proximity persistence and samples its own RSSI every 500 ms on the SDK owner task. Calibration is scoped by an owner/installation hash. Queued controls retain origin, connection generation, session and deadline; completion returns to that instance and disconnect cancels only that origin. Local event 56 explicitly maps to the lock actuator; reference lock state is DEMO. See [proximity unlock](PROXIMITY_UNLOCK.en.md).
 
-Android 通知在回调中用 `moto_event_get_notification` 复制成 `moto_notification`，UI 不再自行解析 CBOR；显示上限为 4 秒，断连/撤回仍清理。ANCS 使用独立解析器。具体边界见[接线说明](PROXIMITY_AND_POWER.md)。
+## 车辆开关机 / Vehicle power
 
-Android callbacks copy `moto_notification` through `moto_event_get_notification` before borrowed data expires. The UI no longer parses CBOR; the four-second display limit and disconnect/removal cleanup remain. ANCS uses its own parser. See [wiring](PROXIMITY_AND_POWER.en.md).
+Wi-Fi 主实例的命令 55 显式映射到电源执行器。DEMO 只改变背光，通信保持；真实车辆需替换执行器和状态采集。详见 [车辆开关机](VEHICLE_POWER.md)。
+
+Primary Wi-Fi command 55 explicitly maps to the power actuator. DEMO power changes backlight while communication stays alive; real products require actuators and observed telemetry. See [vehicle power](VEHICLE_POWER.en.md).
+
+## 通知快照 / Notification snapshots
+
+Android 通知在回调中用 `moto_event_get_notification` 复制成 `moto_notification`，UI 不再自行解析 CBOR；显示上限为 4 秒，断连/撤回仍清理。ANCS 使用独立解析器。代码入口见 [功能索引](FEATURES.md)。
+
+Android callbacks copy `moto_notification` through `moto_event_get_notification` before borrowed data expires. The UI no longer parses CBOR; the four-second display limit and disconnect/removal cleanup remain. ANCS uses its own parser. See [feature entry points](FEATURES.en.md).

@@ -19,7 +19,7 @@
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity-docs2.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity-docs3.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
