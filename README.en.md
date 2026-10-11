@@ -6,6 +6,12 @@ A board application for JC1060P470C_I_W_Y, JD9165 1024×600, ESP32-P4 + ESP32-C6
 
 **The application and adapters are open source; Moto SDK implementation remains in proprietary static libraries.** Obtain the SDK 0.1.0 / FreeRTOS ABI 8 / ESP-IDF 5.5.4 binary package and your device's license from the integration team. No SDK implementation, SDK distribution, device license or private key is published here.
 
+## Before first connection
+
+[Get the APP](https://oou.net/en/downloads) and sign in while the phone has internet access. Contact the [integration team](https://oou.net/en/contact) for the installation channel, service environment or console access. An authorized administrator must confirm device registration and the model’s Wi-Fi/test features. The SDK ZIP, device license and trusted public key are separate delivery items; use the [setup checklist](https://oou.net/en/docs/platform-and-license).
+
+For the specified board, start with the root project below: it already includes radio and display drivers. `examples/managed-terminal` and the SDK package’s `examples/customer` are porting templates for your own board; building/flashing them alone does not establish a phone connection. Follow [Provisioning](docs/PROVISIONING.md) for the license, hotspot details and PIN pairing.
+
 ## Build the full board application
 
 Install ESP-IDF 5.5.4 with its toolchain, Python 3.10+ and Git. Substitute your SDK package and IDF installation paths:
@@ -13,7 +19,7 @@ Install ESP-IDF 5.5.4 with its toolchain, Python 3.10+ and Git. Substitute your 
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity-docs2.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build

@@ -6,6 +6,12 @@
 
 **本仓库开源应用与适配代码，Moto SDK 内部实现仍为闭源静态库。** 客户从接入团队取得 SDK 0.1.0 / ABI 8 / ESP-IDF 5.5.4 的二进制包和本设备授权。本仓库不包含 SDK 实现、二进制分发、设备授权或私钥。
 
+## 首次接入准备
+
+从[官网获取 APP](https://oou.net/zh/downloads)，在手机可联网时完成登录；安装渠道、后台环境或账号不清楚时联系[接入团队](https://oou.net/zh/contact)。由有权限的管理员确认本机已登记、型号开启 Wi-Fi 和本次测试功能。SDK ZIP、设备授权和可信公钥分开交付，见[材料清单](https://oou.net/zh/docs/platform-and-license)。
+
+指定板型先走下面的根工程：它已包含无线与屏幕驱动。`examples/managed-terminal` 和 SDK 包内的 `examples/customer` 是自有板移植模板，直接编译烧录仍不能接通手机。首次连接按[设备配置](docs/PROVISIONING.md)完成授权写入、热点信息获取和 PIN 配对。
+
 ## 先运行完整 P4 工程
 
 安装 ESP-IDF 5.5.4 及其工具链、Python 3.10+ 和 Git。SDK 包路径与 IDF 路径替换为本机实际值：
@@ -13,7 +19,7 @@
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity-docs2.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
