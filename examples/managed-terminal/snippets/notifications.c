@@ -29,7 +29,10 @@ moto_result example_hfp_state(moto_terminal *t, uint64_t call_id,
                              uint32_t state, uint32_t available_actions) {
     return moto_terminal_report_call(t, call_id, state, available_actions);
 }
-/* Enable c.notifications / c.calls only after UI / HFP is implemented.
+/* c.notifications enables protocol input, not BLE. The current APP sends
+ * notifications to a separate Core BLE companion; Wi-Fi alone supplies no input.
+ * The managed notice helpers require an already-wired notification transport.
+ * Enable c.calls only after HFP integration.
  * CALL_ACTION: copy event to the HFP task, operate once, retry only completion.
  * ANCS: c.ancs_ready(port.user) must read the actual encrypted GATT subscription
  * state under the BSP's lock. ANCS_SHARING expresses intent, not permission. */

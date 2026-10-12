@@ -1,8 +1,20 @@
 # 验证记录 / Validation
 
-当前接入使用 SDK 0.1.0、package revision 16、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前验证使用 SDK 0.1.0、package revision 17、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-Current integration requires SDK 0.1.0, package revision 16 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+The current verified baseline uses SDK 0.1.0, package revision 17 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## 二进制交付 / Binary delivery — 2026-10-13
+
+revision 17 / ABI 8 增加创建阶段的 OTA 端口校验，并补齐 Managed/Core 入口边界与迁移说明。公开根工程和 managed-terminal 使用导入包完成 ESP-IDF 5.5.4 编译链接；最终包与构建所用头文件、静态库及组件逐字节一致。宿主 ASan/UBSan、导入安全检查和公开文件审计通过。
+
+The public root and managed-terminal build and link against revision 17 / ABI 8 on ESP-IDF 5.5.4. The final package headers, archives and component files match the build inputs byte for byte. Host sanitizer tests, importer checks and the public-file audit pass. This revision validates OTA ports at creation and clarifies Managed/Core integration and migration.
+
+包 SHA-256 / package SHA-256: `be2afb9f5fcc112220c62ac31cc3efc3649c23c352d1f9f15c6d1df6237be973`。
+
+相同二进制 SDK 已链接到现有内部仪表固件并刷入 P4，写入哈希校验和 35 秒运行观察通过；本次未刷入公开参考 UI 或 managed BSP 模板。手机通知、导航和真实执行器仍需目标设备验收。
+
+The same SDK archives were linked into the existing internal instrument firmware and flashed to P4, with flash hash verification and a 35-second runtime observation. This does not establish hardware acceptance for the public reference UI or the managed BSP template, neither of which was flashed. Phone features and real actuators require separate acceptance.
 
 ## 能力协商 / Capability negotiation — 2026-10-12
 

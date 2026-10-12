@@ -4,6 +4,10 @@
 
 Import the binary SDK following the [root README](../../README.en.md), then run `idf.py build` here. Implement license loading, network readiness and AP/IP setup and PIN/theme rendering in `main/board_driver.c`. Default stubs fail explicitly. Do not start the full-board terminal in this firmware.
 
+先确认产品范围：本工程封装单条主业务会话。完整仪表所需的独立 BLE、感应解锁、底图或 iOS 镜像使用根工程 Core 结构。`moto_terminal_post` 只扩展当前实例已配置的功能，不自动挂接辅助实例。可保留的 BSP/UI/车辆驱动及切换步骤见 [迁移指南](https://oou.net/zh/docs/versions-and-migration)。
+
+Confirm the product scope first: this project wraps one primary session. Independent BLE, proximity, basemaps and iOS mirroring use the root Core architecture. `moto_terminal_post` extends configured operations on the existing instance; it does not attach companions. See the [migration guide](https://oou.net/en/docs/versions-and-migration) for reusable BSP/UI/vehicle drivers and switching steps.
+
 [逐项功能与文件](../../docs/FEATURES.md) · [Feature map](../../docs/FEATURES.en.md) · [官网 API / API guide](https://oou.net/en/docs/api-reference)
 
 `main.c` 展示事件循环、业务分流和完成回执。`snippets/*.c` 都参与编译，按需调用，不会自行启用硬件功能。主连接由 `config.network` 托管；`bluetooth.c` 仅展示高级外部传输模式，两种模式互斥。视频事件的 session 和 peer token 不可混用。

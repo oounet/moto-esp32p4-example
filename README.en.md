@@ -40,7 +40,7 @@ After checking your board, wiring, partition layout and backup, use your serial 
 ## Learn and port each feature
 
 - `main/` is the complete board application. It uses the SDK's **public low-level C APIs**, including independent Wi-Fi business and BLE notification sessions plus video tasks. It is not SDK implementation source.
-- `examples/managed-terminal/` is a separate, simpler ABI 8 FreeRTOS project with SDK-owned tasks/events, compilable feature examples and replaceable BSP. Do not start both architectures in one firmware.
+- `examples/managed-terminal/` is the ABI 8 managed primary-session entry, with SDK-owned tasks/events and a replaceable BSP. Use it when its exposed ports cover the product. Current APP BLE notifications, proximity, basemaps and iOS mirroring use the root Core architecture. Both complete projects must not own the same primary connection. See the [migration guide](https://oou.net/en/docs/versions-and-migration) for driver reuse and switching steps.
 - [Feature matrix](docs/FEATURES.en.md) identifies implemented paths, examples, missing hardware and acceptance steps. Advertising, OTA and call examples do not imply the board has a media player, OTA partition layout or HFP hardware.
 
 ```sh
@@ -65,7 +65,7 @@ Application code is MIT; third-party files retain their licenses in [THIRD_PARTY
 
 The root project includes compressed map reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 16 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
 
-The current revision 16 / ABI 8 baseline includes capability negotiation, SDK-managed listeners, connection generations, backpressure and stale-session cleanup, retaining CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
+The current revision 17 / ABI 8 baseline includes capability negotiation, SDK-managed listeners, connection generations, backpressure and stale-session cleanup, retaining CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
 
 ## Resources, upgrades and service
 

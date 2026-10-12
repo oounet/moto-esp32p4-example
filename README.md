@@ -40,7 +40,7 @@ idf.py -DMOTO_LICENSE_TRUST_HEADER=/absolute/path/to/moto-license-trust.h build
 ## 再按功能学习与移植
 
 - `main/`：完整板端应用，使用 SDK **公开的底层 C API**，包含 Wi-Fi 主业务、独立 BLE 通知及视频任务。此处不是 SDK 内部源码。
-- `examples/managed-terminal/`：面向新平台的简单 FreeRTOS ABI 8 接口，SDK 管理任务和事件；含各功能可编译示例及可替换 BSP。**独立工程，不和 main 创建两个终端实例。**
+- `examples/managed-terminal/`：单主业务的 FreeRTOS ABI 8 托管入口，SDK 管理任务和事件；适合所需功能已由该入口开放的新 BSP。当前 App 的独立 BLE 通知、感应解锁、底图和 iOS 镜像使用根工程 Core 结构。两个完整工程不同时拥有同一主连接；已有驱动的复用步骤见 [迁移指南](https://oou.net/zh/docs/versions-and-migration)。
 - `docs/FEATURES.md`：逐项列出代码入口、运行状态、需要客户实现的部分和验证方法。广告、OTA、通话示例不代表本开发板已具备对应播放器、启动分区或 HFP 硬件。
 
 ```sh
@@ -65,7 +65,7 @@ python3 tools/audit_public.py
 
 根工程包含整包压缩接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 16 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
 
-当前接入要求 revision 16 / ABI 8，网络监听、连接代次、背压和失效清理由 SDK 统一管理；同时保留已有 CRC32 与消息解析优化。实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
+当前验证基线为 revision 17 / ABI 8，网络监听、连接代次、背压和失效清理由 SDK 统一管理；同时保留已有 CRC32 与消息解析优化。实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
 
 ## 资源、升级与售后
 

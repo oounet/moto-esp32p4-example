@@ -10,9 +10,13 @@ The full application serializes public core/TLS APIs on the NimBLE host. UI and 
 
 ## 简单标准入口 / Managed interface
 
-`examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于从零移植到新板，不在 P4 主工程中再次启动；主工程展示 Wi-Fi 与 BLE 独立实例及通知连接接管。
+`examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于只需要已开放主业务功能的新板移植。需要当前 App 通知、感应解锁、底图或独立镜像时，应采用 Core 结构；不在 P4 主工程中再次启动完整 managed 终端。
 
-The separate managed example owns one terminal through the ABI 8 facade. It is the recommended starting point for new BSPs. It is not a second running terminal inside the full board firmware. Feature snippets are compiled as part of this project and illustrate public API contracts without copying SDK implementation.
+The separate managed example owns one primary session through the ABI 8 facade. Use it for new BSPs needing its exposed primary-session features. Current APP notifications, proximity, basemaps and independent mirroring require Core integration. Do not start a second complete managed terminal inside the full board firmware. Compiled snippets illustrate API contracts; they do not establish additional transports.
+
+`moto_terminal_post` 可在托管所有者任务上调用当前实例已配置的 Core 功能，但不提供新增实例或共享 owner 的完整接线。两种入口共用 Core；当前 Managed 只管理自己的主实例，多 Core 实例由应用按 Core/`moto_network` 契约统一编排，不提供 Managed 主实例与外部 Core 实例直接组合的接入方案。复用与切换步骤见 [迁移指南](https://oou.net/zh/docs/versions-and-migration)。
+
+`moto_terminal_post` runs configured Core operations on the managed owner task; it is not a complete extra-instance or shared-owner integration. Both paths share Core. Managed currently owns its primary instance; applications coordinate multiple Core instances under the Core/`moto_network` contracts. There is no supported recipe for directly combining a managed primary with external Core instances. See the [migration guide](https://oou.net/en/docs/versions-and-migration).
 
 ## 生命周期 / Lifetime
 
