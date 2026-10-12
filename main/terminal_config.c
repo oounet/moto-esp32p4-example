@@ -7,7 +7,7 @@ void terminal_configure_board(moto_config *config, bool video_ready)
     config->capabilities.supported = MOTO_CAP(MOTO_DISPLAY) | MOTO_CAP(MOTO_LOCK) |
         MOTO_CAP(MOTO_VOLUME) | MOTO_CAP(MOTO_LIGHT) | MOTO_CAP(MOTO_HORN) |
         MOTO_CAP(MOTO_BATTERY) | MOTO_CAP(MOTO_CHARGING) | MOTO_CAP(MOTO_MILEAGE) | MOTO_CAP(MOTO_FAULT) |
-        MOTO_CAP(MOTO_PROXIMITY_UNLOCK) | MOTO_CAP(MOTO_POWER);
+        MOTO_CAP(MOTO_PROXIMITY_UNLOCK) | MOTO_CAP(MOTO_POWER) | MOTO_CAP(MOTO_SEAT_CONTROL);
     config->capabilities.width = 1024; config->capabilities.height = 600;
     config->capabilities.rotation = 0;
     config->capabilities.controls[0] = (moto_control_limit){1, 3, 0, 1, 1};

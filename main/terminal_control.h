@@ -15,6 +15,7 @@ static inline const char *terminal_control_name(uint32_t message) {
     case MOTO_LIGHT_SET: return "Light";
     case MOTO_HORN_TRIGGER: return "Horn";
     case MOTO_POWER_SET: return "Power";
+    case MOTO_SEAT_OPEN: return "Open seat";
     case MOTO_PROXIMITY_UNLOCK_TRIGGER: return "Proximity unlock";
     default: return NULL;
     }
@@ -26,6 +27,7 @@ static inline void terminal_control_apply(moto_vehicle_state *state, const contr
     case MOTO_LIGHT_SET: if (effect->value != 2) state->values[MOTO_LIGHT] = effect->value; break;
     case MOTO_POWER_SET: state->values[MOTO_POWER] = effect->value; break;
     case MOTO_PROXIMITY_UNLOCK_TRIGGER: state->values[MOTO_LOCK] = 0; break;
+    case MOTO_SEAT_OPEN: break; /* Release only; never synthesize a lid state. */
     default: break;
     }
 }

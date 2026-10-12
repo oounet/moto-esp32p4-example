@@ -14,6 +14,7 @@ Start with the full board application. For a new BSP use the separate managed ex
 | Vehicle state and faults | [vehicle.c](../examples/managed-terminal/snippets/vehicle.c) / [faults.c](../examples/managed-terminal/snippets/faults.c) | [main/terminal_board.c](../main/terminal_board.c) | Explicit DEMO; replace with real CAN/UART |
 | Proximity unlock | [Wiring](PROXIMITY_UNLOCK.en.md) | `main/terminal.c`, `main/terminal_control.h` | BLE sampling/calibration and origin-bound completion; lock state is DEMO |
 | Vehicle power | [Wiring](VEHICLE_POWER.en.md) | `main/terminal.c`, `main/terminal_control.h` | Primary commands and observed results; backlight power is DEMO |
+| Seat compartment | [Wiring](SEAT_CONTROL.en.md) | `main/terminal_control.h` | Command59 releases once without new state; root is DEMO, wire a real lock |
 | Navigation HUD | [video.c](../examples/managed-terminal/snippets/video.c) | [main/hud_view.c](../main/hud_view.c) / [main/terminal_board.c](../main/terminal_board.c) | Turn/distance/road rendering remains active during video |
 | Navigation video and standalone mirror | [video.c](../examples/managed-terminal/snippets/video.c) | [main/terminal_video.c](../main/terminal_video.c) | AP, UDP, H.264/MJPEG, presentation receipts; mirror does not start navigation |
 | Android notifications | [notifications.c](../examples/managed-terminal/snippets/notifications.c) | [main/notice_view.c](../main/notice_view.c) / [main/terminal_board.c](../main/terminal_board.c) | Owned core snapshot, display and removal; wire action UI and obtain phone permission |

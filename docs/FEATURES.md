@@ -14,6 +14,7 @@
 | 车况与故障上报 | [vehicle.c](../examples/managed-terminal/snippets/vehicle.c) / [faults.c](../examples/managed-terminal/snippets/faults.c) | [main/terminal_board.c](../main/terminal_board.c) | 根工程为显式 DEMO；量产替换 CAN/UART |
 | 感应解锁 | [接线说明](PROXIMITY_UNLOCK.md) | `main/terminal.c`、`main/terminal_control.h` | 独立 BLE 采样/校准、来源隔离回执；锁状态为 DEMO |
 | 车辆开关机 | [接线说明](VEHICLE_POWER.md) | `main/terminal.c`、`main/terminal_control.h` | 主业务指令、实际状态回执；背光开关为 DEMO |
+| 座桶 | [接线说明](SEAT_CONTROL.md) | `main/terminal_control.h` | 指令59单次开盖，无新增状态；根工程为DEMO，真实锁需适配 |
 | 导航 HUD | [video.c](../examples/managed-terminal/snippets/video.c) | [main/hud_view.c](../main/hud_view.c) / [main/terminal_board.c](../main/terminal_board.c) | 转向、距离、道路等事件绘制，投屏期间也保留 |
 | 导航视频、独立镜像 | [video.c](../examples/managed-terminal/snippets/video.c) | [main/terminal_video.c](../main/terminal_video.c) | 热点、UDP、H.264/MJPEG、显示回执；镜像不启动导航 |
 | Android 通知 | [notifications.c](../examples/managed-terminal/snippets/notifications.c) | [main/notice_view.c](../main/notice_view.c) / [main/terminal_board.c](../main/terminal_board.c) | 核心通知快照、显示与移除；动作 API 需接 UI，需手机授权 |

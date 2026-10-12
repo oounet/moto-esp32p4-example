@@ -19,7 +19,7 @@
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity-docs4.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261012-abi8-capabilities.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -63,9 +63,9 @@ python3 tools/audit_public.py
 
 ## 离线地图
 
-根工程包含整包压缩接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 14 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
+根工程包含整包压缩接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 16 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
 
-当前接入要求 revision 14 / ABI 8，网络监听、连接代次、背压和失效清理由 SDK 统一管理；同时保留已有 CRC32 与消息解析优化。实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
+当前接入要求 revision 16 / ABI 8，网络监听、连接代次、背压和失效清理由 SDK 统一管理；同时保留已有 CRC32 与消息解析优化。实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
 
 ## 资源、升级与售后
 

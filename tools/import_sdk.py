@@ -45,6 +45,8 @@ def import_package(archive, destination):
         info = json.loads(z.read(prefix + 'BUILD_INFO.json'))
         if (info.get('distribution'), info.get('target'), info.get('idf_version'), info.get('freertos_abi')) != ('binary-only', 'esp32p4', '5.5.4', 8):
             raise ValueError("Requires binary ESP32-P4 / IDF 5.5.4 / ABI 8 package")
+        if not isinstance(info.get('package_revision'), int) or info['package_revision'] < 16 or info.get('seat_control') != 1 or info.get('capability_negotiation') != 1:
+            raise ValueError("Requires revision 16 or newer with capability negotiation and seat control; replace matching headers and archives")
         selected = {p for p in actual if p.startswith(('include/', 'lib/', 'components/moto_prebuilt/', 'third_party_notices/')) or p in {'BUILD_INFO.json', 'VALIDATION.json', 'THIRD_PARTY_NOTICES.txt'}}
         required = {'include/moto/sdk.h', 'include/moto/proximity.h', 'include/moto/network.h', 'include/moto/network_socket.h', 'include/moto_freertos/terminal.h', 'components/moto_prebuilt/CMakeLists.txt', 'lib/esp32p4-idf5.5.4/libmoto_sdk.a', 'lib/esp32p4-idf5.5.4/libmoto_freertos.a'}
         if not required <= selected or any(PurePosixPath(p).suffix in {'.c', '.cpp', '.py', '.motolic', '.pem', '.key'} for p in selected):

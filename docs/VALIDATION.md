@@ -1,8 +1,28 @@
 # 验证记录 / Validation
 
-当前接入使用 SDK 0.1.0、package revision 14、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前接入使用 SDK 0.1.0、package revision 16、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-Current integration requires SDK 0.1.0, package revision 14 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+Current integration requires SDK 0.1.0, package revision 16 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## 能力协商 / Capability negotiation — 2026-10-12
+
+revision 16 / ABI 8 的公开根工程和 managed-terminal 均通过 ESP-IDF 5.5.4 构建；最终交付包的头文件、两个静态库及组件配置与构建依赖逐字节一致。宿主 ASan/UBSan、导入安全检查和公开文件审计通过。PROFILE key34 与 CAPS_GET key0 使用单一新流程，无旧协议回退。
+
+The public root and managed-terminal projects build with revision 16 / ABI 8 on ESP-IDF 5.5.4. Final headers, both archives and component configuration match the build inputs byte for byte. Host ASan/UBSan, importer safety checks and the public-file audit pass. PROFILE key34 and CAPS_GET key0 use one required flow without old-protocol fallback.
+
+包 SHA-256 / package SHA-256: `4939ea23dbb9c08850861c4f3a868cdf380292e171366c7ae5b7f0bfc9599131`。
+
+本轮未刷板，尚未验证新固件的真实 Wi-Fi / BLE 重连和座桶执行器。No firmware was flashed; real Wi-Fi/BLE reconnection and a physical seat actuator remain unverified with this firmware.
+
+## 座桶 / Seat release — 2026-10-12
+
+根工程和 managed-terminal 使用 revision 15 / ABI 8 配套头库完成 ESP-IDF 5.5.4 构建。导入器拒绝缺少座桶支持的旧包；4项导入检查、宿主 ASan/UBSan 和公开文件审计通过。新增测试确认座桶演示不改写任何状态字段。
+
+Both root and managed-terminal builds pass on ESP-IDF 5.5.4 with matching revision 15 / ABI 8 headers and archives. Import checks reject older packages without seat support; four importer checks, host ASan/UBSan and the public-file audit pass. Seat demo tests verify that no state fields are changed.
+
+包 SHA-256 / package SHA-256: `1a209830c1b37176dc51480cb66266573e3389ed4f6ac6545deb57657268fc7e`。
+
+本次未刷板，未验证真实座桶开盖。This update was not flashed and does not verify a physical seat actuator.
 
 ## ABI 8、感应锁与电源 / ABI 8, proximity and power — 2026-10-11
 

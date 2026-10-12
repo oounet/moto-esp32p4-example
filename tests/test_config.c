@@ -25,6 +25,7 @@ int main(void)
         assert(sdk); /* Covers SDK config invariants for real and failed decoder startup. */
         assert(moto_enabled_capabilities(sdk) == 0); /* Local demos cannot grant cloud permissions. */
         assert((config.simulated_capabilities & MOTO_CAP(MOTO_LOCK)) != 0);
+        assert((config.simulated_capabilities & MOTO_CAP(MOTO_SEAT_CONTROL)) != 0);
         assert((config.simulated_capabilities & MOTO_CAP(MOTO_DISPLAY)) == 0);
         assert(!config.wifi && !config.wifi_ota);
         moto_destroy(sdk);

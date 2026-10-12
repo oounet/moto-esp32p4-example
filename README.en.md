@@ -19,7 +19,7 @@ Install ESP-IDF 5.5.4 with its toolchain, Python 3.10+ and Git. Substitute your 
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261011-abi8-proximity-docs4.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-binary-20261012-abi8-capabilities.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -63,9 +63,9 @@ Application code is MIT; third-party files retain their licenses in [THIRD_PARTY
 
 ## Offline maps
 
-The root project includes compressed map reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 14 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
+The root project includes compressed map reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 16 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
 
-Revision 14 / ABI 8 moves listeners, connection generations, backpressure and stale-session cleanup into the SDK, retaining earlier CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
+The current revision 16 / ABI 8 baseline includes capability negotiation, SDK-managed listeners, connection generations, backpressure and stale-session cleanup, retaining CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
 
 ## Resources, upgrades and service
 
