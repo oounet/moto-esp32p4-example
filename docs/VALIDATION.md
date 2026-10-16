@@ -1,8 +1,18 @@
 # 验证记录 / Validation
 
-当前验证使用 SDK 0.1.0、package revision 25、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前接入基线为硬件 SDK 1.0.0 / package r27 / FreeRTOS ABI8，配套 App SDK 1.0.0；头库必须来自同一包。实际 GA 状态以接入团队交付记录为准。
 
-The current verified baseline uses SDK 0.1.0, package revision 25 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+The current integration baseline is hardware SDK 1.0.0 / package r27 / ABI8 with App SDK 1.0.0. Use matching headers and archives. GA status follows the integration team's delivery record.
+
+## 1.0.0 交付复核 / Delivery verification — 2026-10-16
+
+最终候选二进制包已通过导入校验；根工程和 managed-terminal 均通过 ESP-IDF5.5.4 编译链接。host/import 测试和链接主机静态库的矢量存储/绘制 ASan/UBSan 回归通过。两工程共用1.x/r27/ABI8门槛，拒绝不匹配的包。镜像恢复使用严格递增的连接编号，避免旧代次回流；SDK私有回归覆盖认证失败、超时和连续重试。
+
+The final candidate package passes import validation and both full and managed ESP-IDF5.5.4 builds. Host/import and vector store/renderer sanitizer tests pass. Both builds share the 1.x/r27/ABI8 gate. Mirror recovery requires increasing connection IDs; private SDK tests cover failed authentication, timeout and retries.
+
+本轮未刷板；首次配对、真实车辆、LCD、无线、听音、升级保留owner和生产后端仍需独立验收。下文保留旧包的历史验证事实，不能当作1.0.0目标硬件验收。
+
+No board was flashed. First pairing, real actuators, LCD, radio, audio, owner-preserving upgrades and production backend require separate acceptance. Historical results below do not establish target-device acceptance for 1.0.0.
 
 ## 矢量地图与发布检查 / Vector maps and publication checks — 2026-10-16
 

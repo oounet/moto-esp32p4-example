@@ -1,10 +1,10 @@
-# Moto ESP32-P4 开源接入参考工程
+# 无限骑行 ESP32-P4 开源接入参考工程
 
 [English](README.en.md) · [功能与代码入口](docs/FEATURES.md) · [架构](docs/ARCHITECTURE.md)
 
 面向 JC1060P470C_I_W_Y / JD9165 1024×600 屏、ESP32-P4 + ESP32-C6 的完整应用参考。Wi-Fi 配对、导航/镜像接收、HUD、通知和仪表切换使用实际板级驱动；车辆数据始终标记 DEMO。
 
-**本仓库开源应用与适配代码，Moto SDK 内部实现仍为闭源静态库。** 客户从接入团队取得 SDK 0.1.0 / ABI 8 / ESP-IDF 5.5.4 的二进制包和本设备授权。本仓库不包含 SDK 实现、二进制分发、设备授权或私钥。
+**本仓库开源应用与适配代码，无限骑行硬件 SDK 内部实现仍为闭源静态库。** 客户从接入团队取得 SDK 1.0.0 / r27 / ABI 8 / ESP-IDF 5.5.4 的二进制包和本设备授权。本仓库不包含 SDK 实现、二进制分发、设备授权或私钥。
 
 ## 首次接入准备
 
@@ -19,7 +19,7 @@
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-abi8-r25.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-1.0.0-freertos-esp32p4-binary-20261016-abi8-r27.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -40,7 +40,7 @@ idf.py -DMOTO_LICENSE_TRUST_HEADER=/absolute/path/to/moto-license-trust.h build
 ## 再按功能学习与移植
 
 - `main/`：完整板端应用，使用 SDK **公开的底层 C API**，包含 Wi-Fi 主业务、独立 BLE 通知及视频任务。此处不是 SDK 内部源码。
-- `examples/managed-terminal/`：单主业务的 FreeRTOS ABI 8 托管入口，SDK 管理任务和事件；适合所需功能已由该入口开放的新 BSP。当前 App 的独立 BLE 通知、感应解锁、底图和 iOS 镜像使用根工程 Core 结构。两个完整工程不同时拥有同一主连接；已有驱动的复用步骤见 [迁移指南](https://oou.net/zh/docs/versions-and-migration)。
+- `examples/managed-terminal/`：单主业务的 FreeRTOS ABI 8 托管入口，SDK 管理任务和事件；适合所需功能已由该入口开放的新 BSP。当前 App 的独立 BLE 通知、感应解锁和底图使用根工程 Core 结构。Managed 可在 start 前通过 `moto_terminal_set_mirror` / `moto_terminal_set_audio` 配置镜像和音频，需要 `config.network`、真实视频/音频端口及授权；本模板默认不启用。两个完整工程不同时拥有同一主连接；已有驱动的复用步骤见 [迁移指南](https://oou.net/zh/docs/versions-and-migration)。
 - `docs/FEATURES.md`：逐项列出代码入口、运行状态、需要客户实现的部分和验证方法。广告、OTA、通话示例不代表本开发板已具备对应播放器、启动分区或 HFP 硬件。
 
 ```sh
@@ -59,13 +59,13 @@ python3 tools/audit_public.py
 
 验证记录见 [VALIDATION.md](docs/VALIDATION.md)。本次公开版本的 UI 为原生 LVGL 参考界面，只使用可再分发字体；没有打包原仪表图片及系统字体。P4/C6 无经典蓝牙 HFP，通话音频需要外部硬件。SDK 队列、UI、解码、无线与掉电持久化必须在客户目标板独立验证。
 
-应用代码采用 MIT，第三方代码/字体保留原许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。此许可不包含 Moto SDK 二进制及其头文件的再分发授权。
+应用代码采用 MIT，第三方代码/字体保留原许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。此许可不包含 无限骑行硬件 SDK 二进制及其头文件的再分发授权。
 
 ## 离线地图
 
-根工程包含RVP1/RVZ1 矢量窗口接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 25 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
+根工程包含RVP1/RVZ1 矢量窗口接收、路线底图及 Wi-Fi 位置显示，见[离线地图接入](docs/OFFLINE_MAPS.md)。需 revision 27 或更新的匹配 SDK，旧包的结构与符号不兼容。升级时将原 vendor/moto-sdk 移到本地备份目录后重新导入；不要只替换头文件。
 
-当前验证基线为 revision 25 / ABI 8，网络监听、连接代次、背压和失效清理由 SDK 统一管理；同时保留已有 CRC32 与消息解析优化。实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
+当前验证基线为 revision 27 / ABI 8，网络监听、连接代次、背压和失效清理由 SDK 统一管理；同时保留已有 CRC32 与消息解析优化。实际吞吐和帧率仍需在目标板测量，见 [验证记录](docs/VALIDATION.md)。
 
 ## 资源、升级与售后
 

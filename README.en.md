@@ -1,10 +1,10 @@
-# Moto ESP32-P4 open integration reference
+# Infinite Ride ESP32-P4 open integration reference
 
 [中文](README.md) · [Features](docs/FEATURES.en.md) · [Architecture](docs/ARCHITECTURE.md)
 
 A board application for JC1060P470C_I_W_Y, JD9165 1024×600, ESP32-P4 + ESP32-C6. Wi-Fi pairing, navigation/mirroring reception, HUD, notifications and instrument switching have board adapters. Vehicle telemetry remains visibly DEMO data.
 
-**The application and adapters are open source; Moto SDK implementation remains in proprietary static libraries.** Obtain the SDK 0.1.0 / FreeRTOS ABI 8 / ESP-IDF 5.5.4 binary package and your device's license from the integration team. No SDK implementation, SDK distribution, device license or private key is published here.
+**The application and adapters are open source; Infinite Ride hardware SDK implementation remains in proprietary static libraries.** Obtain the SDK 1.0.0 / r27 / FreeRTOS ABI 8 / ESP-IDF 5.5.4 binary package and your device's license from the integration team. No SDK implementation, SDK distribution, device license or private key is published here.
 
 ## Before first connection
 
@@ -19,7 +19,7 @@ Install ESP-IDF 5.5.4 with its toolchain, Python 3.10+ and Git. Substitute your 
 ```sh
 git clone https://github.com/oounet/moto-esp32p4-example.git
 cd moto-esp32p4-example
-python3 tools/import_sdk.py /path/to/moto-sdk-0.1.0-freertos-esp32p4-abi8-r25.zip
+python3 tools/import_sdk.py /path/to/moto-sdk-1.0.0-freertos-esp32p4-binary-20261016-abi8-r27.zip
 python3 tools/fetch_lvgl.py
 . /path/to/esp-idf-v5.5.4/export.sh
 idf.py build
@@ -40,7 +40,7 @@ After checking your board, wiring, partition layout and backup, use your serial 
 ## Learn and port each feature
 
 - `main/` is the complete board application. It uses the SDK's **public low-level C APIs**, including independent Wi-Fi business and BLE notification sessions plus video tasks. It is not SDK implementation source.
-- `examples/managed-terminal/` is the ABI 8 managed primary-session entry, with SDK-owned tasks/events and a replaceable BSP. Use it when its exposed ports cover the product. Current APP BLE notifications, proximity, basemaps and iOS mirroring use the root Core architecture. Both complete projects must not own the same primary connection. See the [migration guide](https://oou.net/en/docs/versions-and-migration) for driver reuse and switching steps.
+- `examples/managed-terminal/` is the ABI 8 managed primary-session entry, with SDK-owned tasks/events and a replaceable BSP. Use it when its exposed ports cover the product. Current APP BLE notifications, proximity and basemaps use the root Core architecture. Managed mirror/audio can be configured before start with `moto_terminal_set_mirror` / `moto_terminal_set_audio`, requiring `config.network`, real video/audio ports and authorization; this template leaves them disabled. Both complete projects must not own the same primary connection. See the [migration guide](https://oou.net/en/docs/versions-and-migration) for driver reuse and switching steps.
 - [Feature matrix](docs/FEATURES.en.md) identifies implemented paths, examples, missing hardware and acceptance steps. Advertising, OTA and call examples do not imply the board has a media player, OTA partition layout or HFP hardware.
 
 ```sh
@@ -59,13 +59,13 @@ python3 tools/audit_public.py
 
 See [validation](docs/VALIDATION.md). The public UI uses native LVGL widgets and redistributable fonts; original dashboard artwork and system-font derivatives are excluded. P4/C6 does not provide Classic Bluetooth HFP; call audio requires external hardware. Validate radio, rendering, storage and power-loss behavior on your board.
 
-Application code is MIT; third-party files retain their licenses in [THIRD_PARTY.md](THIRD_PARTY.md). The license does not grant redistribution rights to Moto SDK headers or binaries.
+Application code is MIT; third-party files retain their licenses in [THIRD_PARTY.md](THIRD_PARTY.md). The license does not grant redistribution rights to Infinite Ride hardware SDK headers or binaries.
 
 ## Offline maps
 
-The root project includes RVP1/RVZ1 vector-window reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 25 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
+The root project includes RVP1/RVZ1 vector-window reception and route/Wi-Fi position rendering. See [Offline maps](docs/OFFLINE_MAPS.en.md). Use matching revision 27 or newer SDK headers and archives. Move the old vendor/moto-sdk to a local backup before importing an upgrade; do not replace headers alone.
 
-The current revision 25 / ABI 8 baseline includes capability negotiation, SDK-managed listeners, connection generations, backpressure and stale-session cleanup, retaining CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
+The current revision 27 / ABI 8 baseline includes capability negotiation, SDK-managed listeners, connection generations, backpressure and stale-session cleanup, retaining CRC32 and parser optimizations; measure throughput and frame rate on your target board. See [validation](docs/VALIDATION.md).
 
 ## Resources, upgrades and service
 

@@ -1,8 +1,8 @@
 # 精简矢量绘制核心 / lean vector renderer
 
-2026-10-15：`main/route_vector_view.c/.h` 提供纯 RGB565 绘制，已接入固件构建和 `route_map_store`。需要完整导入 r25 / FreeRTOS ABI 8 的匹配头文件及静态库，端口就绪后才声明矢量能力。输入是经 SHA、身份和解析预算验证的不可变 RVP1 窗口及同一导航/路线的位置。
+2026-10-15：`main/route_vector_view.c/.h` 提供纯 RGB565 绘制，已接入固件构建和 `route_map_store`。需要完整导入 1.0.0 / r27 / FreeRTOS ABI 8 的匹配头文件及静态库，端口就绪后才声明矢量能力。输入是经 SHA、身份和解析预算验证的不可变 RVP1 窗口及同一导航/路线的位置。
 
-The RGB565 compositor is connected to the firmware build and map store. Import the complete matching r25 / FreeRTOS ABI 8 headers and archives. Capability is advertised only with a ready port. Inputs are immutable RVP1 windows validated for SHA, identities and parser budgets, with matching navigation/route positions.
+The RGB565 compositor is connected to the firmware build and map store. Import the complete matching 1.0.0 / r27 / FreeRTOS ABI 8 headers and archives. Capability is advertised only with a ready port. Inputs are immutable RVP1 windows validated for SHA, identities and parser budgets, with matching navigation/route positions.
 
 绘制范围为纯色背景、按层级排序的道路线、规划路线和位置箭头。无堆分配、LVGL 对象、字体、地图图片或 JPEG 解码。支持 320–2048 × 200–2048 像素、北向上和日夜模式。返回值表示整个视口的块是否都已准备，已确认空块算覆盖、没有索引的块算缺失。覆盖不完整时仍画已有道路、有效路线和位置；调用者必须传播未就绪状态。
 

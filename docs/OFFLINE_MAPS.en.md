@@ -10,7 +10,7 @@ Connect vehicle Wi-Fi and keep the APP foregrounded until the current device map
 
 ## Board integration
 
-Import matching **SDK revision 25 / FreeRTOS ABI 8 or newer** headers, archives and metadata together. Maps are wired into the full P4 root application. Do not concurrently call the managed example's private core instance or start a second terminal to reuse maps.
+Import matching **SDK 1.0.0 / revision 27 / FreeRTOS ABI 8 or newer** headers, archives and metadata together. Maps are wired into the full P4 root application. Do not concurrently call the managed example's private core instance or start a second terminal to reuse maps.
 
 | File | Responsibility |
 | --- | --- |

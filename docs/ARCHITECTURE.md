@@ -10,9 +10,9 @@ The full application serializes public core/TLS APIs on the NimBLE host. UI and 
 
 ## 简单标准入口 / Managed interface
 
-`examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于只需要已开放主业务功能的新板移植。需要当前 App 通知、感应解锁、底图或独立镜像时，应采用 Core 结构；不在 P4 主工程中再次启动完整 managed 终端。
+`examples/managed-terminal` 独立使用 `moto_freertos/terminal.h`，由闭源库管理 SDK 任务、认证、事件复制和 bulk TLS。客户只实现 board_driver 的端口。它用于只需要已开放主业务功能的新板移植。需要当前 App 通知、感应解锁、底图时，应采用 Core 结构；Managed 可在 start 前配置 `set_mirror` / `set_audio`，镜像要求 `config.network` 和真实视频能力，音频要求真实 sink；不在 P4 主工程中再次启动完整 managed 终端。
 
-The separate managed example owns one primary session through the ABI 8 facade. Use it for new BSPs needing its exposed primary-session features. Current APP notifications, proximity, basemaps and independent mirroring require Core integration. Do not start a second complete managed terminal inside the full board firmware. Compiled snippets illustrate API contracts; they do not establish additional transports.
+The separate managed example owns one primary session through the ABI 8 facade. Use it for new BSPs needing its exposed primary-session features. Current APP notifications, proximity and basemaps require Core integration. Managed mirror/audio can be configured before start using `set_mirror` / `set_audio`; mirror requires `config.network` and real video capability, and audio requires a real sink. Do not start a second complete managed terminal inside the full board firmware. Compiled snippets illustrate API contracts; they do not establish additional transports.
 
 `moto_terminal_post` 可在托管所有者任务上调用当前实例已配置的 Core 功能，但不提供新增实例或共享 owner 的完整接线。两种入口共用 Core；当前 Managed 只管理自己的主实例，多 Core 实例由应用按 Core/`moto_network` 契约统一编排，不提供 Managed 主实例与外部 Core 实例直接组合的接入方案。复用与切换步骤见 [迁移指南](https://oou.net/zh/docs/versions-and-migration)。
 
@@ -44,17 +44,17 @@ The AP starts at boot. UDP 5000 provides discovery; TCP 5004 carries authenticat
 
 ## iOS 镜像续期 / iOS mirror lease
 
-完整 P4 应用在 TCP 5005 提供独立镜像 TLS 实例，配置 `mirror_auxiliary=true` 并通过 `moto_connect_mirror` 绑定主实例。广播扩展使用主连接授予的本流随机授权续期，只能保活或停止该流；主连接关闭或流切换后授权失效。该端点与主业务在同一 owner 线程串行执行，辅助 CLOSED 不清理主显示/热点。JPEG 引擎和输出缓冲在启动时分配并保留到重启，视频 worker 独占使用。
+完整 P4 应用在 TCP 5005 提供独立镜像 TLS 实例，配置 `mirror_auxiliary=true` 并通过 `moto_connect_mirror` 绑定主实例。广播扩展使用主连接授予的本流随机授权续期，只能保活或停止该流；显式断开、流切换、撤权或租期到期后授权失效。该端点与主业务在同一 owner 线程串行执行，辅助 CLOSED 不清理主显示/热点。JPEG 引擎和输出缓冲在启动时分配并保留到重启，视频 worker 独占使用。
 
-The full P4 app serves a separate TLS mirror lease on TCP 5005 using `mirror_auxiliary=true` and `moto_connect_mirror`. The capture extension may renew or stop only its granted stream. Closing the primary connection or replacing the stream revokes the grant. Both instances run on the same owner thread; auxiliary closure must not tear down the primary display or hotspot. One JPEG engine/output buffer is reserved at boot and reused exclusively by the video worker.
+The full P4 app serves a separate TLS mirror lease on TCP 5005 using `mirror_auxiliary=true` and `moto_connect_mirror`. The capture extension may renew or stop only its granted stream. Explicit disconnect, stream replacement, revocation or lease expiry revokes the grant. Both instances run on the same owner thread; auxiliary closure must not tear down the primary display or hotspot. One JPEG engine/output buffer is reserved at boot and reused exclusively by the video worker.
 
 TLS 动态缓冲使用 PSRAM（`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`），为 SDIO/JPEG 保留内部 DMA 内存。连接和认证日志不记录凭据。
 
 TLS dynamic buffers use PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`) to leave internal DMA memory for SDIO/JPEG. Connection/authentication diagnostics do not record credentials.
 
-主 TCP 意外丢失时，只有已委派的镜像可调用 `moto_detach_mirror` 保留；无主 socket 时仍在 owner 线程 poll 主实例。期间拒绝新主连接，辅助停止、20秒无续期或撤权后释放。显式用户断开仍使用 `moto_disconnect`。
+主 TCP 意外丢失时，只有已委派的镜像可调用 `moto_detach_mirror` 保留；无主 socket 时仍在 owner 线程 poll 主实例。新主连接按 PROFILE39 使用全新 TLS、当前 owner 与本流授权恢复原 session，不重放控车；r27 拒绝旧 connectionId 复用。辅助停止、20秒无续期或撤权后释放。显式用户断开仍使用 `moto_disconnect`。
 
-On unexpected primary TCP loss, only an already delegated mirror can use `moto_detach_mirror`. Continue polling the primary on its owner thread without a socket. Reject replacement primary connections until extension stop, twenty seconds without renewal, or revocation releases the session. Explicit user disconnection still uses `moto_disconnect`.
+On unexpected primary TCP loss, only an already delegated mirror can use `moto_detach_mirror`. Continue polling the primary on its owner thread without a socket. A replacement primary uses PROFILE39, fresh TLS, the current owner and stream grant to recover the original session without replaying controls; r27 rejects reuse of the old connection ID. Extension stop, twenty seconds without renewal, or revocation releases the session. Explicit user disconnection still uses `moto_disconnect`.
 
 单客户端 AP 收到手机离线或热点停止事件时，网络任务只递增原子代次，SDK 所有者队列在接受新连接前关闭旧业务/镜像 socket 并清除认证。即使快速重连复用同一 DHCP 地址也不能保留旧会话。无线链路实际断开时撤销镜像租期；仅主 TCP 意外重置而无线仍可用时保留上述扩展续期。通过平台网络状态、App 的 TCP ready、`TLS_READY` 和 `OWNER_AUTHENTICATED` 分别测量各阶段。
 
@@ -66,9 +66,9 @@ Each TCP listener allows four pending handshakes so an incomplete SYN from an at
 
 ## SDK 网络所有权 / SDK network ownership
 
-revision 14 / ABI 8：根工程用 `moto_network` 的核心绑定管理主业务、独立镜像和 UDP 发现；managed 工程用 `config.network` 管理主业务。板端只提供网络就绪/代次快照与接口地址，BSD/lwIP 原语来自闭源 SDK 包，不复制其实现。其他芯片/网络栈实现同一公开原语，静态库仍需匹配目标 ABI。地图和 bulk 仍是独立任务通道。
+1.0.0 / revision 27 / ABI 8：根工程用 `moto_network` 的核心绑定管理主业务、独立镜像和 UDP 发现；managed 工程用 `config.network` 管理主业务。板端只提供网络就绪/代次快照与接口地址，BSD/lwIP 原语来自闭源 SDK 包，不复制其实现。其他芯片/网络栈实现同一公开原语，静态库仍需匹配目标 ABI。地图和 bulk 仍是独立任务通道。
 
-Revision 14 / ABI 8 uses SDK-owned networking in both examples: core primary/mirror binding in the full app and config.network in the managed app. The BSP supplies readiness/generation and interface address; the binary SDK supplies optional BSD/lwIP primitives. Other chips/stacks implement the same public port with matching target binaries. Maps and bulk retain separate task channels.
+1.0.0 / revision 27 / ABI 8 uses SDK-owned networking in both examples: core primary/mirror binding in the full app and config.network in the managed app. The BSP supplies readiness/generation and interface address; the binary SDK supplies optional BSD/lwIP primitives. Other chips/stacks implement the same public port with matching target binaries. Maps and bulk retain separate task channels.
 
 ## 感应解锁 / Proximity unlock
 
