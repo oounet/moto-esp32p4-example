@@ -2,7 +2,7 @@ Seat control releases the lid beneath an electric scooter or motorcycle seat onc
 
 ## Enable the capability
 
-Enable `vehicle.seat.control` for the device model: bit 13, `MOTO_SEAT_CONTROL`, mask `8192`. Adding the catalog entry does not grant it to existing models. Use matching SDK revision 16 / FreeRTOS ABI 8 headers and archives and an APP that supports this capability.
+Enable `vehicle.seat.control` for the device model: bit 13, `MOTO_SEAT_CONTROL`, mask `8192`. Adding the catalog entry does not grant it to existing models. Use matching SDK revision 25 / FreeRTOS ABI 8 headers and archives and an APP that supports this capability.
 
 The APP shows **Open seat** under **More** for the current vehicle. An authenticated primary business connection is required. The action has no telemetry field and does not wait for unrelated battery samples. It does not use the BLE notification companion.
 

@@ -1,8 +1,18 @@
 # 验证记录 / Validation
 
-当前验证使用 SDK 0.1.0、package revision 17、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
+当前验证使用 SDK 0.1.0、package revision 25、FreeRTOS ABI 8；头文件与静态库必须来自同一个交付包。下方按日期保留历史构建证据，旧包不是当前接入要求。
 
-The current verified baseline uses SDK 0.1.0, package revision 17 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+The current verified baseline uses SDK 0.1.0, package revision 25 and FreeRTOS ABI 8, with matching headers and archives. Dated entries below preserve historical evidence, not current package requirements.
+
+## 矢量地图与发布检查 / Vector maps and publication checks — 2026-10-16
+
+根工程与 managed-terminal 已用 revision 25 / ABI 8 二进制 SDK 通过 ESP-IDF 5.5.4 构建。公开宿主测试、导入校验以及链接主机 SDK 静态库的矢量存储/绘制 ASan/UBSan 测试通过。导入时拒绝缺少 vector_map.h 的包；测试脚本不再读取相邻私有 SDK 源码。旧日期记录仅作为历史证据。
+
+Both root and managed-terminal build on ESP-IDF 5.5.4 against revision 25 / ABI 8 binaries. Public host/import tests and vector store/renderer ASan/UBSan tests linked to a host SDK archive pass. The importer rejects packages missing vector_map.h; test scripts do not read adjacent proprietary sources. Older dated entries remain historical evidence.
+
+本次未刷板。真实无线、LCD、锁屏导航、音频与掉电恢复仍需目标设备验收。
+
+No hardware was flashed. Actual radio, LCD, lock-screen navigation, audio and power-loss recovery remain target-device acceptance work.
 
 ## 二进制交付 / Binary delivery — 2026-10-13
 

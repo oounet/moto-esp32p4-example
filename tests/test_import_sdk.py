@@ -10,14 +10,15 @@ module = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(module)
 class ImportSafety(unittest.TestCase):
     def test_rejects_old_abi_and_imports_matching_package(self):
         with tempfile.TemporaryDirectory() as tmp:
-            for abi, revision in [(7, 16), (8, 15), (8, 16)]:
+            for abi, revision, vector in [(7, 25, True), (8, 24, True), (8, 25, False), (8, 25, True)]:
                 files = {path: b'' for path in [
                     'include/moto/sdk.h', 'include/moto/proximity.h',
                     'include/moto/network.h', 'include/moto/network_socket.h',
                     'include/moto_freertos/terminal.h', 'components/moto_prebuilt/CMakeLists.txt',
                     'lib/esp32p4-idf5.5.4/libmoto_sdk.a', 'lib/esp32p4-idf5.5.4/libmoto_freertos.a']}
+                if vector: files['include/moto/vector_map.h'] = b''
                 files['BUILD_INFO.json'] = json.dumps({'distribution': 'binary-only',
-                    'target': 'esp32p4', 'idf_version': '5.5.4', 'freertos_abi': abi, 'package_revision': revision, 'seat_control': 1, 'capability_negotiation': 1}).encode()
+                    'target': 'esp32p4', 'idf_version': '5.5.4', 'freertos_abi': abi, 'package_revision': revision, 'seat_control': 1, 'capability_negotiation': 1, 'route_vector_version': 1}).encode()
                 sums = ''.join(hashlib.sha256(data).hexdigest() + '  ' + path + '\n'
                                for path, data in files.items())
                 archive = Path(tmp) / f'abi{abi}-revision{revision}.zip'
@@ -29,8 +30,12 @@ class ImportSafety(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'ABI 8'):
                         module.import_package(archive, destination)
                     self.assertFalse(destination.exists())
-                elif revision < 16:
-                    with self.assertRaisesRegex(ValueError, 'revision 16'):
+                elif revision < 25:
+                    with self.assertRaisesRegex(ValueError, 'revision 25'):
+                        module.import_package(archive, destination)
+                    self.assertFalse(destination.exists())
+                elif not vector:
+                    with self.assertRaisesRegex(ValueError, 'Unexpected SDK payload'):
                         module.import_package(archive, destination)
                     self.assertFalse(destination.exists())
                 else:

@@ -9,8 +9,9 @@
 #endif
 static uint32_t get32(const uint8_t *p){return (uint32_t)p[0]<<24|(uint32_t)p[1]<<16|(uint32_t)p[2]<<8|p[3];}
 size_t route_map_expanded_size(const uint8_t *p,size_t n,size_t limit){
-    if(!p||n<18||memcmp(p,"MZP1",4))return 0;
-    uint32_t size=get32(p+4);return size>=24&&size<=limit?size:0;
+    if(!p||n<18)return 0;
+    bool vector=!memcmp(p,"RVZ1",4);if(!vector&&memcmp(p,"MZP1",4))return 0;
+    uint32_t size=get32(p+4);return size>=(vector?168u:24u)&&size<=limit?size:0;
 }
 bool route_map_inflate(const uint8_t *p,size_t n,uint8_t *out,size_t size){
     if(!out||route_map_expanded_size(p,n,size)!=size||!size)return false;

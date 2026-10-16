@@ -387,7 +387,7 @@ void terminal_board_overlay(uint16_t *pixels, unsigned width, unsigned height) {
     xSemaphoreGive(mutex);
     if(draw){
         bool position_fresh=false,complete=false;
-        if(terminal_map_draw(pixels,width,height,&position_fresh,&complete))
+        if(terminal_map_draw(pixels,width,height,night,&position_fresh,&complete))
             terminal_hud_map_overlay(pixels,width,height,&draw_hud,fresh,night,position_fresh,complete);
         else terminal_hud_draw(pixels,width,height,&draw_hud,fresh,night);
     }

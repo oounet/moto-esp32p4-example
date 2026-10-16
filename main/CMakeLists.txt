@@ -2,7 +2,7 @@ idf_component_register(SRCS
     "main.c" "terminal.c" "terminal_config.c" "terminal_board.c" "terminal_video.c"
     "h264_memory.c" "video_color.c" "factory_usb.c" "factory_license.c" "ancs_adapter.c"
     "notice_view.c" "hud_view.c" "fonts/hud_font.c" "ui/electric_ui.c"
-    "route_map_compression.c" "route_map_store.c" "route_map_transport.c" "route_map_view.c"
+    "route_map_compression.c" "route_map_store.c" "route_map_transport.c" "route_vector_view.c" "route_vector_store.c"
     INCLUDE_DIRS "."
     EMBED_FILES "assets/jpeg_selftest.jpg"
     REQUIRES lvgl jd9165 esp_lcd esp_driver_gpio esp_driver_ledc esp_timer esp_psram

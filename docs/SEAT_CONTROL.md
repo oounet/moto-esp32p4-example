@@ -2,7 +2,7 @@
 
 ## 开启能力
 
-后台设备型号勾选 `vehicle.seat.control`（座桶），对应 bit 13、`MOTO_SEAT_CONTROL`、掩码 `8192`。新增目录项不会自动给已有型号授权。使用 SDK revision 16 / FreeRTOS ABI 8 的配套头文件和静态库，以及支持此能力的 APP。
+后台设备型号勾选 `vehicle.seat.control`（座桶），对应 bit 13、`MOTO_SEAT_CONTROL`、掩码 `8192`。新增目录项不会自动给已有型号授权。使用 SDK revision 25 / FreeRTOS ABI 8 的配套头文件和静态库，以及支持此能力的 APP。
 
 APP 在首页“更多”显示“打开座桶”，只操作当前车辆；需要已认证的主业务连接。此操作没有状态字段，不依赖电量等遥测是否已经到达，也不走 BLE 通知辅助连接。
 
